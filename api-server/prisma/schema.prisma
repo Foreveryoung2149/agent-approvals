@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  passwordHash        String
+  name                String?
+  company             String?
+  plan                Plan     @default(FREE)
+  stripeCustomerId    String?
+  stripeSubscriptionId String?
+  stripePriceId       String?
+  billingStatus       String?
+  emailVerified       Boolean  @default(false)
+  twoFactorEnabled    Boolean  @default(false)
+  twoFactorSecret     String?
+  apiKeys             ApiKey[]
+  webhooks            Webhook[]
+  approvals           Approval[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+enum Plan {
+  FREE
+  STARTUP
+  BUSINESS
+  ENTERPRISE
+}
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  keyPrefix  String
+  keyHash    String   @unique
+  plan       Plan     @default(FREE)
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvals Approval[]
+  usageLogs  UsageLog[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([keyPrefix])
+}
+
+/// The core entity — an agent's request for human approval before a consequential action.
+model Approval {
+  id              String          @id @default(cuid())
+  userId          String
+  apiKeyId        String?
+  agentName       String          /// Name of the agent requesting approval (from API key name or request body)
+  action          String          /// Machine-readable action type, e.g. "book_flight", "send_email"
+  summary         String          /// Human-readable one-line summary of what the agent wants to do
+  details         Json            /// Structured details of the action (any JSON the agent provides)
+  status          ApprovalStatus  @default(PENDING)
+  channel         ApprovalChannel
+  recipient       String          /// Email address, Slack channel, or user ID to deliver the approval to
+  expiresAt       DateTime        /// When the approval auto-expires if no decision is made
+  decidedAt       DateTime?
+  decidedBy       String?         /// Who made the decision (email, Slack user ID)
+  rejectionReason String?        /// Optional reason if rejected
+  webhookUrl      String?         /// Where to send the result webhook
+  approvalToken   String          @unique /// Signed token embedded in approve/reject links (no login required)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey          ApiKey?         @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  logs            ApprovalLog[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([approvalToken])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ApprovalChannel {
+  EMAIL
+  SLACK
+  DASHBOARD
+}
+
+/// Tamper-proof audit trail — every event in an approval's lifecycle.
+model ApprovalLog {
+  id          String   @id @default(cuid())
+  approvalId  String
+  event       String   /// "created", "delivered", "approved", "rejected", "expired", "cancelled", "reminder_sent", "webhook_sent"
+  metadata    Json?
+  approval    Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([approvalId, createdAt])
+}
+
+model Webhook {
+  id         String            @id @default(cuid())
+  userId     String
+  url        String
+  secret     String
+  active     Boolean           @default(true)
+  events     String[]          @default(["approval.approved", "approval.rejected", "approval.expired"])
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([userId])
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  approvalId  String?
+  eventType   String
+  payload     Json
+  statusCode  Int?
+  status      String  @default("pending") /// "pending", "delivered", "failed"
+  error       String?
+  deliveredAt DateTime?
+  attempts    Int      @default(0)
+  webhook     Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([webhookId, createdAt])
+}
+
+model UsageLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  apiKeyId   String?
+  method     String
+  path       String
+  statusCode Int
+  durationMs Int
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  apiKey     ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([apiKeyId, createdAt])
+}

@@ -1,0 +1,45 @@
+{
+  "name": "agent-approvals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "dev:api": "node --watch api-server/server.js",
+    "build": "next build",
+    "start": "next start",
+    "start:api": "node api-server/server.js",
+    "db:migrate": "cd api-server && npx prisma migrate dev",
+    "db:generate": "cd api-server && npx prisma generate",
+    "db:studio": "cd api-server && npx prisma studio"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "express": "^4.21.0",
+    "@prisma/client": "^6.1.0",
+    "zod": "^3.24.0",
+    "resend": "^4.0.0",
+    "stripe": "^17.0.0",
+    "bcryptjs": "^2.4.3",
+    "otplib": "^12.0.3",
+    "uuid": "^11.0.0",
+    "dotenv": "^16.4.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/express": "^5.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "prisma": "^6.1.0",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0"
+  }
+}
