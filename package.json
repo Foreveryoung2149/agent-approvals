@@ -9,6 +9,8 @@
     "build": "next build",
     "start": "next start",
     "start:api": "node api-server/server.js",
+    "railway:web": "next start -p $PORT",
+    "railway:api": "npx prisma generate --schema api-server/prisma/schema.prisma && npx prisma migrate deploy --schema api-server/prisma/schema.prisma && npm run start:api",
     "db:migrate": "cd api-server && npx prisma migrate dev",
     "db:generate": "cd api-server && npx prisma generate",
     "db:studio": "cd api-server && npx prisma studio"
