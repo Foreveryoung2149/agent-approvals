@@ -1,274 +1,143 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { EmptyState, LoadingState, MetricCard, PageHeader, Panel } from "../components/DashboardUI";
+import { ErrorState, StatusBadge } from "../components/dashboard/DashboardControls";
+import type { ApiKeyRecord, ApprovalRecord, WebhookRecord } from "../components/dashboard/types";
+import { formatShortDate, readApiError } from "../components/dashboard/types";
+import { Icon } from "../components/Icon";
 import { apiFetch } from "../lib/api";
 
-interface Approval {
-  id: string;
-  agentName: string;
-  action: string;
-  summary: string;
-  status: string;
-  channel: string;
-  recipient: string;
-  expires_at: string;
-  decided_at: string | null;
-  created_at: string;
+interface OverviewData {
+  approvals: ApprovalRecord[];
+  keys: ApiKeyRecord[];
+  webhooks: WebhookRecord[];
 }
 
 export default function DashboardPage() {
-  const [keys, setKeys] = useState<any[]>([]);
-  const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [newKey, setNewKey] = useState("");
-  const [newKeyName, setNewKeyName] = useState("Default key");
+  const [data, setData] = useState<OverviewData>({ approvals: [], keys: [], webhooks: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadDashboard();
+  const loadDashboard = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError("");
+    try {
+      const [approvalsResponse, keysResponse, webhooksResponse] = await Promise.all([
+        apiFetch("/v1/approvals?limit=100", { signal }),
+        apiFetch("/v1/api-keys", { signal }),
+        apiFetch("/v1/webhooks", { signal }),
+      ]);
+
+      if (!approvalsResponse.ok) throw new Error(await readApiError(approvalsResponse, "Approval activity is unavailable."));
+      if (!keysResponse.ok) throw new Error(await readApiError(keysResponse, "API key data is unavailable."));
+      if (!webhooksResponse.ok) throw new Error(await readApiError(webhooksResponse, "Webhook data is unavailable."));
+
+      const [approvalsBody, keysBody, webhooksBody] = await Promise.all([
+        approvalsResponse.json() as Promise<{ approvals?: ApprovalRecord[] }>,
+        keysResponse.json() as Promise<{ keys?: ApiKeyRecord[] }>,
+        webhooksResponse.json() as Promise<{ webhooks?: WebhookRecord[] }>,
+      ]);
+      setData({
+        approvals: approvalsBody.approvals || [],
+        keys: keysBody.keys || [],
+        webhooks: webhooksBody.webhooks || [],
+      });
+    } catch (loadError) {
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+      setError(loadError instanceof Error ? loadError.message : "Dashboard data could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  async function loadDashboard() {
-    try {
-      const [k, a] = await Promise.all([
-        apiFetch("/v1/api-keys"),
-        apiFetch("/v1/approvals?limit=10"),
-      ]);
-      if (k.ok) setKeys((await k.json()).keys || []);
-      if (a.ok) setApprovals((await a.json()).approvals || []);
-      setLoading(false);
-    } catch {
-      setError("Failed to load dashboard data");
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadDashboard(controller.signal);
+    return () => controller.abort();
+  }, [loadDashboard]);
 
-  async function createKey() {
-    try {
-      const r = await apiFetch("/v1/api-keys", {
-        method: "POST",
-        body: JSON.stringify({ name: newKeyName }),
-      });
-      const d = await r.json();
-      if (r.ok) {
-        setNewKey(d.key);
-        loadDashboard();
-      } else {
-        setError(d?.error?.message || "Error creating key");
-      }
-    } catch {
-      setError("Network error");
-    }
-  }
+  if (loading) return <LoadingState label="Loading command center" />;
+  if (error) return <ErrorState message={error} onRetry={() => void loadDashboard()} />;
 
-  const pending = approvals.filter((a) => a.status === "pending").length;
-  const approved = approvals.filter((a) => a.status === "approved").length;
-  const rejected = approvals.filter((a) => a.status === "rejected").length;
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh", color: "var(--gray-8)" }}>
-        Loading...
-      </div>
-    );
-  }
+  const recent = data.approvals;
+  const pending = recent.filter((approval) => approval.status === "pending").length;
+  const approved = recent.filter((approval) => approval.status === "approved").length;
+  const rejected = recent.filter((approval) => approval.status === "rejected").length;
+  const activeKeys = data.keys.filter((key) => !key.revoked).length;
+  const activeWebhooks = data.webhooks.filter((webhook) => webhook.active).length;
+  const setupComplete = activeKeys > 0 && activeWebhooks > 0 && recent.length > 0;
 
   return (
     <div>
-      <h1
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "24px",
-          fontWeight: 700,
-          color: "var(--gray-12)",
-          margin: "0 0 32px",
-        }}
-      >
-        Overview
-      </h1>
+      <PageHeader
+        eyebrow="Live workspace"
+        title="Command center"
+        description="A clear view of the latest 100 approval requests and your delivery readiness."
+        actions={<Link href="/docs" className="btn-secondary"><Icon name="terminal" size={16} />Quickstart</Link>}
+      />
 
-      {error && <div className="alert-error" style={{ marginBottom: "20px" }}>{error}</div>}
-
-      {/* Stats */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "16px",
-          marginBottom: "40px",
-        }}
-      >
-        <div className="stat-card">
-          <div className="stat-label">Total Approvals</div>
-          <div className="stat-value">{approvals.length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Pending</div>
-          <div className="stat-value" style={{ color: "var(--warning)" }}>{pending}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Approved</div>
-          <div className="stat-value" style={{ color: "var(--success)" }}>{approved}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Rejected</div>
-          <div className="stat-value" style={{ color: "var(--error)" }}>{rejected}</div>
-        </div>
+      <div className="metrics-grid" aria-label="Recent approval metrics">
+        <MetricCard label="Recent requests" value={recent.length} note="Latest 100 maximum" icon="activity" />
+        <MetricCard label="Awaiting a decision" value={pending} note="Needs human attention" icon="clock" tone="warning" />
+        <MetricCard label="Approved" value={approved} note="Within this recent window" icon="approval" tone="success" />
+        <MetricCard label="Rejected" value={rejected} note="Within this recent window" icon="shield" tone="danger" />
       </div>
 
-      {/* API Keys section */}
-      <section style={{ marginBottom: "48px" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
+      <div className="dash-grid">
+        <Panel
+          title="Recent decision traffic"
+          description="Your newest approval requests, ordered by creation time."
+          action={<Link href="/dashboard/approvals" className="dash-text-link">View all <Icon name="arrow" size={14} /></Link>}
         >
-          <h2 style={{ fontFamily: "var(--font-mono)", fontSize: "17px", fontWeight: 700, color: "var(--gray-12)", margin: 0 }}>
-            API Keys
-          </h2>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <input
-              value={newKeyName}
-              onChange={(e) => setNewKeyName(e.target.value)}
-              className="input"
-              style={{ width: "180px", padding: "8px 12px", fontSize: "13px" }}
-              placeholder="Key name"
+          {recent.length === 0 ? (
+            <EmptyState
+              icon="approval"
+              title="No approval traffic yet"
+              description="Create an API key, connect an agent, and your decisions will appear here in real time."
+              action={<Link href="/docs" className="btn-primary">Send your first request</Link>}
             />
-            <button onClick={createKey} className="btn-primary" style={{ minHeight: "36px", fontSize: "13px", padding: "0 16px" }}>
-              Create key
-            </button>
-          </div>
-        </div>
+          ) : (
+            <div className="dash-table-wrap" role="region" aria-label="Recent approval requests" tabIndex={0}>
+              <table className="data-table">
+                <thead><tr><th>Action</th><th>Agent</th><th>Status</th><th>Channel</th><th>Created</th></tr></thead>
+                <tbody>
+                  {recent.slice(0, 8).map((approval) => (
+                    <tr key={approval.id}>
+                      <td data-label="Action"><code className="dash-code-value">{approval.action}</code><small className="dash-row-summary">{approval.summary}</small></td>
+                      <td data-label="Agent">{approval.agent_name}</td>
+                      <td data-label="Status"><StatusBadge status={approval.status} /></td>
+                      <td data-label="Channel" className="dash-capitalize">{approval.channel}</td>
+                      <td data-label="Created">{formatShortDate(approval.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
 
-        {newKey && (
-          <div className="alert-success" style={{ marginBottom: "16px" }}>
-            <p style={{ margin: "0 0 8px", fontWeight: 600 }}>Save this key — it&apos;s shown only once:</p>
-            <code
-              style={{
-                display: "block",
-                padding: "10px 14px",
-                background: "var(--gray-1)",
-                borderRadius: "6px",
-                fontSize: "13px",
-                fontFamily: "var(--font-mono)",
-                color: "var(--gray-12)",
-                overflowX: "auto",
-              }}
-            >
-              {newKey}
-            </code>
-          </div>
-        )}
-
-        {keys.length === 0 ? (
-          <p style={{ color: "var(--gray-8)", fontSize: "14px" }}>
-            No API keys yet. Create one to start sending approval requests.
-          </p>
-        ) : (
-          <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Key</th>
-                  <th>Last Used</th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((k: any) => (
-                  <tr key={k.id}>
-                    <td style={{ color: "var(--gray-12)", fontWeight: 500 }}>{k.name}</td>
-                    <td>
-                      <code style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--gray-8)" }}>
-                        {k.key_prefix}...
-                      </code>
-                    </td>
-                    <td style={{ fontSize: "13px" }}>
-                      {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : "Never"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {/* Recent Approvals */}
-      <section>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <h2 style={{ fontFamily: "var(--font-mono)", fontSize: "17px", fontWeight: 700, color: "var(--gray-12)", margin: 0 }}>
-            Recent Approvals
-          </h2>
-          <Link href="/dashboard/approvals" style={{ fontSize: "13px", color: "var(--accent)", fontWeight: 600 }}>
-            View all →
-          </Link>
-        </div>
-
-        {approvals.length === 0 ? (
-          <div
-            style={{
-              border: "1px solid var(--gray-3)",
-              borderRadius: "10px",
-              padding: "48px",
-              textAlign: "center",
-            }}
-          >
-            <p style={{ color: "var(--gray-8)", fontSize: "14px", margin: "0 0 4px" }}>
-              No approvals yet.
-            </p>
-            <p style={{ color: "var(--gray-6)", fontSize: "13px", margin: 0 }}>
-              Use your API key to send your first approval request.
-            </p>
-          </div>
-        ) : (
-          <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Summary</th>
-                  <th>Status</th>
-                  <th>Channel</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {approvals.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <code style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--accent-dim)" }}>
-                        {a.action}
-                      </code>
-                    </td>
-                    <td style={{ maxWidth: "280px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {a.summary}
-                    </td>
-                    <td>
-                      <span className={`badge badge-${a.status}`}>
-                        {a.status}
-                      </span>
-                    </td>
-                    <td style={{ textTransform: "capitalize", fontSize: "13px" }}>{a.channel}</td>
-                    <td style={{ fontSize: "13px" }}>{new Date(a.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        <Panel title="Launch readiness" description={setupComplete ? "Your control loop is connected." : "Finish these steps to go live."}>
+          <ol className="dash-checklist">
+            <li data-complete={activeKeys > 0}>
+              <span><Icon name={activeKeys > 0 ? "check" : "key"} size={16} /></span>
+              <div><strong>Create an API key</strong><small>{activeKeys > 0 ? `${activeKeys} active key${activeKeys === 1 ? "" : "s"}` : "Authenticate your agent"}</small></div>
+              <Link href="/dashboard/api-keys" aria-label="Manage API keys"><Icon name="chevron" size={16} /></Link>
+            </li>
+            <li data-complete={activeWebhooks > 0}>
+              <span><Icon name={activeWebhooks > 0 ? "check" : "webhook"} size={16} /></span>
+              <div><strong>Connect a webhook</strong><small>{activeWebhooks > 0 ? `${activeWebhooks} active endpoint${activeWebhooks === 1 ? "" : "s"}` : "Receive signed outcomes"}</small></div>
+              <Link href="/dashboard/webhooks" aria-label="Manage webhooks"><Icon name="chevron" size={16} /></Link>
+            </li>
+            <li data-complete={recent.length > 0}>
+              <span><Icon name={recent.length > 0 ? "check" : "approval"} size={16} /></span>
+              <div><strong>Send a test approval</strong><small>{recent.length > 0 ? "Decision traffic received" : "Verify the human loop"}</small></div>
+              <Link href="/docs" aria-label="Read approval quickstart"><Icon name="chevron" size={16} /></Link>
+            </li>
+          </ol>
+        </Panel>
+      </div>
     </div>
   );
 }

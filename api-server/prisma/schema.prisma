@@ -9,25 +9,28 @@ datasource db {
 }
 
 model User {
-  id                  String   @id @default(cuid())
-  email               String   @unique
-  passwordHash        String
-  name                String?
-  company             String?
-  plan                Plan     @default(FREE)
-  stripeCustomerId    String?
-  stripeSubscriptionId String?
-  stripePriceId       String?
-  billingStatus       String?
-  emailVerified       Boolean  @default(false)
-  twoFactorEnabled    Boolean  @default(false)
-  twoFactorSecret     String?
-  apiKeys             ApiKey[]
-  webhooks            Webhook[]
-  approvals           Approval[]
-  usageLogs           UsageLog[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                     String     @id @default(cuid())
+  email                  String     @unique
+  passwordHash           String
+  name                   String?
+  company                String?
+  plan                   Plan       @default(FREE)
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  billingStatus          String?
+  emailVerified          Boolean    @default(false)
+  sessionVersion         Int        @default(0)
+  twoFactorEnabled       Boolean    @default(false)
+  twoFactorSecret        String? /// AES-GCM encrypted TOTP secret
+  twoFactorPendingSecret String? /// AES-GCM encrypted secret awaiting confirmation
+  apiKeys                ApiKey[]
+  webhooks               Webhook[]
+  approvals              Approval[]
+  usageLogs              UsageLog[]
+  authCodes              AuthCode[]
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
 }
 
 enum Plan {
@@ -38,51 +41,91 @@ enum Plan {
 }
 
 model ApiKey {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   userId     String
   name       String
+  mode       ApiKeyMode @default(LIVE)
   keyPrefix  String
-  keyHash    String   @unique
-  plan       Plan     @default(FREE)
+  keyHash    String     @unique
+  plan       Plan       @default(FREE)
   revokedAt  DateTime?
   lastUsedAt DateTime?
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  approvals Approval[]
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvals  Approval[]
   usageLogs  UsageLog[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([userId])
   @@index([keyPrefix])
 }
 
+enum ApiKeyMode {
+  LIVE
+  TEST
+}
+
 /// The core entity — an agent's request for human approval before a consequential action.
 model Approval {
-  id              String          @id @default(cuid())
-  userId          String
-  apiKeyId        String?
-  agentName       String          /// Name of the agent requesting approval (from API key name or request body)
-  action          String          /// Machine-readable action type, e.g. "book_flight", "send_email"
-  summary         String          /// Human-readable one-line summary of what the agent wants to do
-  details         Json            /// Structured details of the action (any JSON the agent provides)
-  status          ApprovalStatus  @default(PENDING)
-  channel         ApprovalChannel
-  recipient       String          /// Email address, Slack channel, or user ID to deliver the approval to
-  expiresAt       DateTime        /// When the approval auto-expires if no decision is made
-  decidedAt       DateTime?
-  decidedBy       String?         /// Who made the decision (email, Slack user ID)
-  rejectionReason String?        /// Optional reason if rejected
-  webhookUrl      String?         /// Where to send the result webhook
-  approvalToken   String          @unique /// Signed token embedded in approve/reject links (no login required)
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKey          ApiKey?         @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  logs            ApprovalLog[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                       String                 @id @default(cuid())
+  userId                   String
+  apiKeyId                 String?
+  agentName                String /// Name of the agent requesting approval (from API key name or request body)
+  action                   String /// Machine-readable action type, e.g. "book_flight", "send_email"
+  summary                  String /// Human-readable one-line summary of what the agent wants to do
+  details                  Json /// Structured details of the action (any JSON the agent provides)
+  externalId               String? /// Caller-owned workflow or run correlation ID
+  metadata                 Json                   @default("{}") /// Non-sensitive correlation metadata
+  status                   ApprovalStatus         @default(PENDING)
+  channel                  ApprovalChannel
+  recipient                String /// Email address authorized to receive this approval
+  expiresAt                DateTime /// When the approval auto-expires if no decision is made
+  decidedAt                DateTime?
+  decidedBy                String? /// Reviewer identity recorded with the decision
+  rejectionReason          String? /// Optional reason if rejected
+  webhookUrl               String? /// Where to send the result webhook
+  webhookId                String?
+  approvalToken            String                 @unique /// SHA-256 digest of the opaque human decision token
+  idempotencyKey           String?
+  requestFingerprint       String? /// SHA-256 of the canonical create request for conflict detection
+  cancelIdempotencyKey     String?
+  cancelRequestFingerprint String?
+  user                     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey                   ApiKey?                @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  webhook                  Webhook?               @relation(fields: [webhookId], references: [id], onDelete: SetNull)
+  logs                     ApprovalLog[]
+  emailDelivery            ApprovalEmailDelivery?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
 
+  @@unique([userId, idempotencyKey])
+  @@unique([userId, cancelIdempotencyKey])
   @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
   @@index([status])
   @@index([approvalToken])
+}
+
+model AuthCode {
+  id            String             @id @default(cuid())
+  userId        String
+  email         String
+  type          AuthCodeType
+  codeHash      String
+  attempts      Int                @default(0)
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailDelivery AuthEmailDelivery?
+  createdAt     DateTime           @default(now())
+
+  @@index([email, type, createdAt])
+  @@index([expiresAt])
+}
+
+enum AuthCodeType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }
 
 enum ApprovalStatus {
@@ -101,12 +144,12 @@ enum ApprovalChannel {
 
 /// Tamper-proof audit trail — every event in an approval's lifecycle.
 model ApprovalLog {
-  id          String   @id @default(cuid())
-  approvalId  String
-  event       String   /// "created", "delivered", "approved", "rejected", "expired", "cancelled", "reminder_sent", "webhook_sent"
-  metadata    Json?
-  approval    Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  approvalId String
+  event      String /// "created", "delivered", "approved", "rejected", "expired", "cancelled", "reminder_sent", "webhook_sent"
+  metadata   Json?
+  approval   Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
   @@index([approvalId, createdAt])
 }
@@ -120,27 +163,85 @@ model Webhook {
   events     String[]          @default(["approval.approved", "approval.rejected", "approval.expired"])
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveries WebhookDelivery[]
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  approvals  Approval[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   @@index([userId])
 }
 
 model WebhookDelivery {
-  id          String   @id @default(cuid())
-  webhookId   String
-  approvalId  String?
-  eventType   String
-  payload     Json
-  statusCode  Int?
-  status      String  @default("pending") /// "pending", "delivered", "failed"
-  error       String?
-  deliveredAt DateTime?
-  attempts    Int      @default(0)
-  webhook     Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id            String    @id @default(cuid())
+  webhookId     String
+  approvalId    String?
+  eventType     String
+  payload       Json
+  statusCode    Int?
+  status        String    @default("pending") /// "pending", "delivered", "failed"
+  error         String?
+  deliveredAt   DateTime?
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime  @default(now())
+  attempts      Int       @default(0)
+  webhook       Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
 
+  @@unique([webhookId, approvalId, eventType])
   @@index([webhookId, createdAt])
+  @@index([status, nextAttemptAt])
+}
+
+model ApprovalEmailDelivery {
+  id                String    @id @default(cuid())
+  approvalId        String    @unique
+  tokenCiphertext   String? /// Encrypted raw decision token; erased after delivery
+  status            String    @default("pending") /// pending, processing, delivered, failed
+  attempts          Int       @default(0)
+  providerMessageId String?
+  error             String?
+  lastAttemptAt     DateTime?
+  nextAttemptAt     DateTime  @default(now())
+  deliveredAt       DateTime?
+  approval          Approval  @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+}
+
+/// Durable delivery state for verification and password-reset codes. The raw
+/// code is encrypted and removed as soon as delivery succeeds or is discarded.
+model AuthEmailDelivery {
+  id                String    @id @default(cuid())
+  authCodeId        String    @unique
+  recipient         String
+  recipientName     String?
+  codeCiphertext    String?
+  status            String    @default("pending") /// pending, processing, delivered, failed, dead_letter, discarded
+  attempts          Int       @default(0)
+  providerMessageId String?
+  error             String?
+  lastAttemptAt     DateTime?
+  nextAttemptAt     DateTime  @default(now())
+  deliveredAt       DateTime?
+  deadLetteredAt    DateTime?
+  authCode          AuthCode  @relation(fields: [authCodeId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+}
+
+/// Shared fixed-window counters used by every API replica. Keys are SHA-256
+/// digests, so email addresses, decision IDs, and IP addresses are not stored.
+model RateLimitBucket {
+  key         String   @id @db.VarChar(64)
+  count       Int      @default(0)
+  windowStart DateTime
+  expiresAt   DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 model UsageLog {

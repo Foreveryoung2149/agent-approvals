@@ -1,13 +1,12 @@
 import bcrypt from "bcryptjs";
-import { randomUUID } from "node:crypto";
+import { readSessionToken } from "../lib/session-cookie.js";
 
 /**
  * Session auth middleware — verifies JWT from Authorization header.
  * Used for dashboard routes (not API routes which use API key auth).
  */
 export async function sessionAuthMiddleware(req, res, next) {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  const token = readSessionToken(req);
 
   if (!token) {
     return res.status(401).json({
@@ -32,9 +31,9 @@ export async function sessionAuthMiddleware(req, res, next) {
 
   try {
     const user = await req.prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user) {
+    if (!user || (session.sessionVersion || 0) !== (user.sessionVersion || 0)) {
       return res.status(401).json({
-        error: { code: "user_not_found", message: "User account not found." },
+        error: { code: "invalid_session", message: "User account was not found or the session was revoked." },
       });
     }
 

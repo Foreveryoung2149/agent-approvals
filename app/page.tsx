@@ -1,360 +1,143 @@
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
 import Link from "next/link";
+import Footer from "./components/Footer";
+import { Icon, type IconName } from "./components/Icon";
+import Navbar from "./components/Navbar";
+import TerminalDemo from "./components/TerminalDemo";
 
-const codeExamples: Record<string, string> = {
-  python: `import requests
-
-resp = requests.post(
-    "https://api.nodsend.com/v1/approvals",
-    headers={"Authorization": "Bearer nod_live_..."},
-    json={
-        "action": "book_flight",
-        "summary": "Book SFO→JFK for $350 on United, Aug 15",
-        "channel": "email",
-        "recipient": "ceo@company.com",
-        "expires_in": "1h",
-        "webhook_url": "https://your-agent.com/webhook",
-    },
-)
-
-approval = resp.json()
-# We email the human. They click approve.
-# You get a signed webhook: { "event": "approval.approved" }`,
-
-  node: `const res = await fetch("https://api.nodsend.com/v1/approvals", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer nod_live_...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    action: "book_flight",
-    summary: "Book SFO→JFK for $350 on United, Aug 15",
-    channel: "email",
-    recipient: "ceo@company.com",
-    expires_in: "1h",
-    webhook_url: "https://your-agent.com/webhook",
-  }),
-});
-
-const { id, status } = await res.json();
-// We email the human. They click approve.
-// You get a signed webhook: { event: "approval.approved" }`,
-
-  curl: `curl -X POST https://api.nodsend.com/v1/approvals \\
-  -H "Authorization: Bearer nod_live_..." \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "action": "book_flight",
-    "summary": "Book SFO→JFK for $350 on United, Aug 15",
-    "channel": "email",
-    "recipient": "ceo@company.com",
-    "expires_in": "1h",
-    "webhook_url": "https://your-agent.com/webhook"
-  }'`,
-};
-
-const features = [
-  {
-    icon: "⚡",
-    label: "One API Call",
-    title: "POST your action. We handle everything.",
-    body: "Send the action, summary, and recipient. We deliver, track, expire, and webhook — you write zero infrastructure code.",
-    bullets: ["Email delivery included", "Auto-expiry built in", "Signed webhook response"],
-    link: { href: "/docs", text: "Read the docs →" },
-  },
-  {
-    icon: "🔐",
-    label: "Signed Webhooks",
-    title: "Tamper-proof. Verifiable. Auditable.",
-    body: "When the human decides, we fire an HMAC-SHA256-signed webhook to your agent. Verify the signature and continue.",
-    bullets: ["HMAC-SHA256 signatures", "Retry with backoff", "Full delivery log"],
-    link: { href: "/docs", text: "Webhook docs →" },
-  },
-  {
-    icon: "📋",
-    label: "Audit Trail",
-    title: "Every event logged. Every decision tracked.",
-    body: "Full lifecycle audit: created, delivered, approved, rejected, expired, cancelled. Query any approval's history via API.",
-    bullets: ["Compliance-ready logs", "Queryable via API", "Tamper-proof events"],
-    link: { href: "/docs", text: "Audit API →" },
-  },
+const capabilities: Array<{ icon: IconName; label: string; title: string; description: string; points: string[] }> = [
+  { icon: "approval", label: "Decision gates", title: "Pause the action, not the whole workflow.", description: "Create a durable checkpoint with the context a person needs to make a confident decision.", points: ["Single-use decision links", "Explicit expiry and cancellation", "Structured decision context"] },
+  { icon: "webhook", label: "Signed outcomes", title: "Resume from a result you can verify.", description: "Every outcome is delivered as a signed event your application can authenticate before it continues.", points: ["HMAC-SHA256 signatures", "Stable event identifiers", "Idempotent workflow resumption"] },
+  { icon: "activity", label: "Operational record", title: "See who decided what, and when.", description: "Trace requests, delivery attempts, decisions, expiry, and cancellation without rebuilding audit infrastructure.", points: ["Lifecycle event history", "Searchable approval queue", "Human-readable evidence"] },
 ];
 
-const sdkItems = [
-  "LangChain", "CrewAI", "AutoGen", "Pydantic AI", "OpenAI SDK",
-  "LlamaIndex", "Python", "Node.js", "Go", "Rust", "curl", "REST",
+const integrations = [
+  ["LangChain", "Durable approval interrupts for agent tools and LangGraph threads."],
+  ["CrewAI", "External human feedback for crews, flows, and guarded tool calls."],
+  ["AutoGen", "Approval-aware function tools for consequential agent actions."],
 ];
 
-const steps = [
-  {
-    num: "01",
-    title: "Agent calls the API",
-    description: "Your agent sends a POST with the action summary, recipient email, and an expiry window.",
-  },
-  {
-    num: "02",
-    title: "Human gets the email",
-    description: "We send a clean email with one-click Approve and Reject buttons. No login needed. No app to install.",
-  },
-  {
-    num: "03",
-    title: "You get the webhook",
-    description: "The moment the human decides, we fire a signed webhook to your agent. Verify and continue execution.",
-  },
+const trace = [
+  ["01", "Agent requests", "The agent describes the action, recipient, and expiry window."],
+  ["02", "Human decides", "Nodsend presents a focused approve or reject decision—no account required."],
+  ["03", "Workflow resumes", "Your application verifies the signed event and executes exactly once."],
 ];
 
 export default function Home() {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <main className="marketing-shell">
       <Navbar />
-
-      {/* ── Hero ─────────────────────────────────── */}
-      <section style={{ padding: "100px 0 60px", textAlign: "center" }}>
-        <div className="container" style={{ maxWidth: "860px" }}>
-          <div className="eyebrow" style={{ marginBottom: "28px" }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--accent)", display: "inline-block" }} />
-            Human-in-the-loop for AI agents
+      <section id="main-content" className="signal-hero" tabIndex={-1}>
+        <div className="container">
+          <div className="hero-kicker">Human control for autonomous systems</div>
+          <h1>Agents move fast.<br />Decisions stay <em>accountable.</em></h1>
+          <p>Put a secure human checkpoint between intent and execution. Nodsend gives every AI framework one approval API, signed outcomes, and a complete decision record.</p>
+          <div className="hero-actions">
+            <Link href="/signup" className="btn-primary">Create a free workspace <Icon name="arrow" size={16} /></Link>
+            <Link href="/docs" className="btn-secondary">Explore the API <Icon name="code" size={16} /></Link>
           </div>
-
-          <h1
-            className="heading-display"
-            style={{
-              fontSize: "clamp(36px, 5.5vw, 64px)",
-              margin: "0 0 24px",
-              color: "var(--gray-12)",
-            }}
-          >
-            Your agent asks.{" "}
-            <br />
-            A human decides.{" "}
-            <br />
-            <span style={{ color: "var(--accent)" }}>You get a webhook.</span>
-          </h1>
-
-          <p
-            style={{
-              fontSize: "18px",
-              color: "var(--gray-9)",
-              maxWidth: "560px",
-              margin: "0 auto 40px",
-              lineHeight: 1.7,
-            }}
-          >
-            One API call. We email the human with approve/reject buttons.
-            They click. You get a signed webhook. That&apos;s it.
-          </p>
-
-          <div style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/signup" className="btn-primary" style={{ fontSize: "15px", padding: "0 28px", minHeight: "48px" }}>
-              Get your API key — it&apos;s free
-            </Link>
-            <Link href="/docs" className="btn-secondary" style={{ fontSize: "15px", padding: "0 28px", minHeight: "48px" }}>
-              Read the docs
-            </Link>
+          <div className="hero-proof" aria-label="Product assurances">
+            <span><Icon name="check" size={15} /> No credit card</span>
+            <span><Icon name="shield" size={15} /> Signed decisions</span>
+            <span><Icon name="pulse" size={15} /> Framework independent</span>
           </div>
         </div>
       </section>
 
-      {/* ── SDK Marquee ──────────────────────────── */}
-      <div className="sdk-marquee">
-        <div className="sdk-marquee-track">
-          {[...sdkItems, ...sdkItems].map((name, i) => (
-            <div key={i} className="sdk-pill">
-              {name}
-            </div>
-          ))}
-        </div>
-      </div>
+      <TerminalDemo />
 
-      {/* ── Code Window ──────────────────────────── */}
-      <section style={{ padding: "80px 0" }}>
-        <div className="container" style={{ maxWidth: "780px" }}>
-          <div className="code-window">
-            <div className="code-window-header">
-              <div className="code-dot" />
-              <div className="code-dot" />
-              <div className="code-dot" />
-              <span
-                style={{
-                  marginLeft: "auto",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "12px",
-                  color: "var(--gray-8)",
-                }}
-              >
-                api.nodsend.com
-              </span>
-            </div>
-            <div className="code-tabs">
-              <button className="code-tab active">Python</button>
-              <button className="code-tab">Node.js</button>
-              <button className="code-tab">cURL</button>
-            </div>
-            <pre>
-              <code>{codeExamples.python}</code>
-            </pre>
+      <section className="trust-strip" aria-label="Platform capabilities">
+        <div className="container trust-grid">
+          <div className="trust-stat"><strong>1</strong><span>Approval API</span></div>
+          <div className="trust-stat"><strong>3</strong><span>Native agent adapters</span></div>
+          <div className="trust-stat"><strong>100%</strong><span>Signed decision events</span></div>
+        </div>
+      </section>
+
+      <section className="section" id="how-it-works">
+        <div className="container">
+          <header className="section-heading">
+            <span className="signal-label">The decision circuit</span>
+            <h2>Autonomy with a deliberate stop button.</h2>
+            <p>Nodsend separates model intent, human authority, and side-effect execution into a clear, auditable flow.</p>
+          </header>
+          <div className="decision-trace">
+            {trace.map(([number, title, description], index) => (
+              <article className="trace-step" key={number}>
+                <div className="trace-node"><span>{number}</span>{index < trace.length - 1 && <i />}</div>
+                <div><h3>{title}</h3><p>{description}</p></div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Glow separator ───────────────────────── */}
-      <div className="glow-line" />
+      <section className="section section-tinted">
+        <div className="container">
+          <header className="section-heading">
+            <span className="signal-label">Control plane</span>
+            <h2>Everything needed to make “ask first” production-ready.</h2>
+            <p>Purpose-built primitives for approvals—not another general automation platform.</p>
+          </header>
+          <div className="capability-grid">
+            {capabilities.map((capability) => (
+              <article className="capability-card" key={capability.label}>
+                <span><Icon name={capability.icon} size={24} /></span>
+                <small>{capability.label}</small>
+                <h3>{capability.title}</h3>
+                <p>{capability.description}</p>
+                <ul>{capability.points.map((point) => <li key={point}><Icon name="check" size={14} />{point}</li>)}</ul>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      {/* ── How it works ─────────────────────────── */}
+      <section className="section" id="integrations">
+        <div className="container">
+          <header className="section-heading">
+            <span className="signal-label">Framework-native</span>
+            <h2>One human layer across your agent stack.</h2>
+            <p>Use Nodsend with native pause-and-resume patterns instead of teaching a model to police itself.</p>
+          </header>
+          <div className="integration-grid">
+            {integrations.map(([name, description]) => (
+              <article className="integration-card" key={name}>
+                <header><span><Icon name="spark" size={21} /></span><code>Python adapter</code></header>
+                <h3>{name}</h3><p>{description}</p>
+                <Link href={`/docs#${name.toLowerCase()}`}>View integration <Icon name="arrow" size={14} /></Link>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="section">
         <div className="container">
-          <div style={{ textAlign: "center", marginBottom: "64px" }}>
-            <div className="eyebrow" style={{ marginBottom: "20px" }}>How it works</div>
-            <h2
-              className="heading-display"
-              style={{ fontSize: "clamp(28px, 4vw, 42px)", color: "var(--gray-12)", margin: 0 }}
-            >
-              Three steps. Zero infrastructure.
-            </h2>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "24px",
-            }}
-          >
-            {steps.map((step) => (
-              <div key={step.num} className="feature-card">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "48px",
-                    fontWeight: 800,
-                    color: "var(--accent-muted)",
-                    lineHeight: 1,
-                    marginBottom: "20px",
-                  }}
-                >
-                  {step.num}
-                </div>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "17px",
-                    fontWeight: 700,
-                    color: "var(--gray-12)",
-                    margin: "0 0 10px",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {step.title}
-                </h3>
-                <p style={{ fontSize: "14px", color: "var(--gray-9)", lineHeight: 1.65, margin: 0 }}>
-                  {step.description}
-                </p>
-              </div>
-            ))}
+          <div className="security-panel">
+            <div className="security-copy">
+              <span className="signal-label">Designed for consequential actions</span>
+              <h2>A human decision should be a security boundary.</h2>
+              <p>Opaque single-use tokens, approval-bound authorization, atomic state changes, and signed webhooks protect the line between “approved” and “executed.”</p>
+              <Link href="/docs#security" className="btn-secondary">Read the security model <Icon name="arrow" size={15} /></Link>
+            </div>
+            <div className="security-readout" aria-label="Security controls">
+              {["Approval-bound tokens", "Atomic decisions", "Replay-aware webhooks", "Tenant-isolated API keys"].map((item, index) => (
+                <div key={item}><span>0{index + 1}</span><Icon name="lock" size={17} /><strong>{item}</strong><Icon name="check" size={16} /></div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="glow-line" />
-
-      {/* ── Features Grid (Kilo-style) ───────────── */}
-      <section className="section">
+      <section className="final-cta">
         <div className="container">
-          <div style={{ textAlign: "center", marginBottom: "64px" }}>
-            <div className="eyebrow" style={{ marginBottom: "20px" }}>Built for production</div>
-            <h2
-              className="heading-display"
-              style={{ fontSize: "clamp(28px, 4vw, 42px)", color: "var(--gray-12)", margin: 0 }}
-            >
-              Everything you need.{" "}
-              <span style={{ color: "var(--gray-8)" }}>Nothing you don&apos;t.</span>
-            </h2>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "24px",
-            }}
-          >
-            {features.map((f) => (
-              <div key={f.label} className="feature-card">
-                <div className="feature-icon">{f.icon}</div>
-                <div className="feature-label">{f.label}</div>
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
-                <ul className="feature-bullets">
-                  {f.bullets.map((b) => (
-                    <li key={b}>{b}</li>
-                  ))}
-                </ul>
-                <Link href={f.link.href} className="feature-link">
-                  {f.link.text}
-                </Link>
-              </div>
-            ))}
-          </div>
+          <span className="signal-label">Ship accountable autonomy</span>
+          <h2>Your agent can act fast.<br />It can still ask first.</h2>
+          <p>Start with 100 approval requests each month. No credit card required.</p>
+          <div className="hero-actions"><Link href="/signup" className="btn-primary">Start building <Icon name="arrow" size={16} /></Link><Link href="/docs" className="btn-secondary">Read the docs</Link></div>
         </div>
       </section>
-
-      <div className="glow-line" />
-
-      {/* ── Bottom CTA ───────────────────────────── */}
-      <section style={{ padding: "100px 0 80px" }}>
-        <div className="container" style={{ textAlign: "center", maxWidth: "640px" }}>
-          <h2
-            className="heading-display"
-            style={{ fontSize: "clamp(24px, 3.5vw, 36px)", color: "var(--gray-12)", margin: "0 0 16px" }}
-          >
-            Your agents should ask{" "}
-            <span style={{ color: "var(--accent)" }}>before they act.</span>
-          </h2>
-          <p style={{ fontSize: "16px", color: "var(--gray-9)", marginBottom: "36px", lineHeight: 1.7 }}>
-            Start free. No credit card. 100 approvals/month included.
-          </p>
-          <div style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/signup" className="btn-primary" style={{ padding: "0 28px", minHeight: "48px", fontSize: "15px" }}>
-              Get started free
-            </Link>
-            <Link href="/docs" className="btn-secondary" style={{ padding: "0 28px", minHeight: "48px", fontSize: "15px" }}>
-              View documentation
-            </Link>
-          </div>
-
-          {/* Platform pills (Kilo style) */}
-          <div
-            style={{
-              display: "flex",
-              gap: "10px",
-              justifyContent: "center",
-              marginTop: "48px",
-              flexWrap: "wrap",
-            }}
-          >
-            {["Email", "Slack", "Dashboard", "Webhook"].map((ch) => (
-              <span
-                key={ch}
-                style={{
-                  padding: "7px 16px",
-                  borderRadius: "999px",
-                  border: "1px solid var(--gray-4)",
-                  background: "rgba(255, 255, 255, 0.02)",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "var(--gray-11)",
-                }}
-              >
-                {ch}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <Footer />
-    </div>
+    </main>
   );
 }

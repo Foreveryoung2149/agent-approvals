@@ -1,164 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, setSessionToken } from "../lib/api";
-import Navbar from "../components/Navbar";
+import { useState } from "react";
+import { AuthShell } from "../components/AuthShell";
+import { Icon } from "../components/Icon";
+import { apiFetch } from "../lib/api";
+
+type Step = "credentials" | "two-factor";
 
 export default function LoginPage() {
+  const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
+  async function submitCredentials(event: React.FormEvent) {
+    event.preventDefault(); setError(""); setLoading(true);
     try {
-      const res = await apiFetch("/v1/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.error?.message || "Invalid email or password");
-        setLoading(false);
-        return;
-      }
-
-      setSessionToken(data.token);
+      const response = await apiFetch("/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      const body = await response.json().catch(() => null) as { token?: string; requireTwoFactor?: boolean; challengeToken?: string; error?: { message?: string } } | null;
+      if (!response.ok) throw new Error(body?.error?.message || "Email or password is incorrect.");
+      if (body?.requireTwoFactor && body.challengeToken) { setChallengeToken(body.challengeToken); setStep("two-factor"); return; }
       router.push("/dashboard");
-    } catch {
-      setError("Network error — is the API server running?");
-      setLoading(false);
-    }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Nodsend could not be reached."); }
+    finally { setLoading(false); }
+  }
+
+  async function submitTwoFactor(event: React.FormEvent) {
+    event.preventDefault(); setError(""); setLoading(true);
+    try {
+      const response = await apiFetch("/v1/auth/login/2fa", { method: "POST", body: JSON.stringify({ challengeToken, code }) });
+      const body = await response.json().catch(() => null) as { token?: string; error?: { message?: string } } | null;
+      if (!response.ok) throw new Error(body?.error?.message || "That verification code is invalid or expired.");
+      router.push("/dashboard");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Verification failed."); }
+    finally { setLoading(false); }
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <Navbar />
-
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "48px 24px",
-        }}
-      >
-        <div className="auth-card">
-          {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <span
-              style={{
-                display: "inline-grid",
-                width: "40px",
-                height: "40px",
-                placeItems: "center",
-                borderRadius: "10px",
-                background: "var(--accent)",
-                color: "#050505",
-                fontSize: "18px",
-                fontWeight: 800,
-                fontFamily: "var(--font-mono)",
-                marginBottom: "20px",
-              }}
-            >
-              N
-            </span>
-            <h1
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "24px",
-                fontWeight: 700,
-                color: "var(--gray-12)",
-                margin: "0 0 8px",
-              }}
-            >
-              Welcome back
-            </h1>
-            <p style={{ color: "var(--gray-9)", fontSize: "14px", margin: 0 }}>
-              Sign in to manage your approvals and API keys.
-            </p>
-          </div>
-
-          {error && <div className="alert-error" style={{ marginBottom: "20px" }}>{error}</div>}
-
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="input"
-                placeholder="you@company.com"
-              />
-            </div>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label className="label" style={{ marginBottom: 0 }}>Password</label>
-                <Link
-                  href="/forgot-password"
-                  style={{
-                    fontSize: "13px",
-                    color: "var(--accent)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="input"
-                style={{ marginTop: "6px" }}
-                placeholder="Your password"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{
-                width: "100%",
-                minHeight: "48px",
-                fontSize: "15px",
-                marginTop: "4px",
-                opacity: loading ? 0.7 : 1,
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading ? "Signing in..." : "Sign in"}
-            </button>
-          </form>
-
-          <p
-            style={{
-              marginTop: "28px",
-              textAlign: "center",
-              color: "var(--gray-8)",
-              fontSize: "14px",
-            }}
-          >
-            New here?{" "}
-            <Link href="/signup" style={{ color: "var(--accent)", fontWeight: 600 }}>
-              Create an account
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+    <AuthShell title={step === "credentials" ? "Welcome back" : "Verify it’s you"} description={step === "credentials" ? "Sign in to your decision control plane." : <>Enter the six-digit code from your authenticator app.</>} footer={step === "credentials" ? <>New to Nodsend? <Link href="/signup">Create a workspace</Link></> : <button className="auth-link-button" type="button" onClick={() => { setStep("credentials"); setCode(""); setError(""); }}>Use another account</button>}>
+      {error && <div className="alert-error" role="alert">{error}</div>}
+      {step === "credentials" ? <form className="auth-form" onSubmit={submitCredentials}>
+        <div><label className="label" htmlFor="email">Work email</label><input id="email" className="input" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@company.com" /></div>
+        <div><div className="field-heading"><label className="label" htmlFor="password">Password</label><Link href="/forgot-password">Forgot password?</Link></div><input id="password" className="input" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Your password" /></div>
+        <button type="submit" className="btn-primary auth-submit" disabled={loading}>{loading ? "Signing in…" : <>Sign in <Icon name="arrow" size={16} /></>}</button>
+      </form> : <form className="auth-form" onSubmit={submitTwoFactor}>
+        <div><label className="label" htmlFor="two-factor-code">Authenticator code</label><input id="two-factor-code" className="input auth-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} required autoFocus aria-describedby="code-help" /><small id="code-help">Codes refresh every 30 seconds.</small></div>
+        <button type="submit" className="btn-primary auth-submit" disabled={loading || code.length !== 6}>{loading ? "Verifying…" : <>Verify and continue <Icon name="arrow" size={16} /></>}</button>
+      </form>}
+    </AuthShell>
   );
 }

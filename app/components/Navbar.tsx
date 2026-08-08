@@ -2,111 +2,65 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getSessionToken } from "../lib/api";
+import { Brand } from "./Brand";
+import { Icon } from "./Icon";
+import { apiFetch } from "../lib/api";
+
+const links = [
+  { href: "/docs", label: "Documentation" },
+  { href: "/#integrations", label: "Integrations" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/faq", label: "FAQ" },
+];
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setIsLoggedIn(!!getSessionToken());
+    const controller = new AbortController();
+    apiFetch("/v1/auth/me", { signal: controller.signal })
+      .then((response) => setIsLoggedIn(response.ok))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setIsLoggedIn(false);
+      });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
   }, []);
 
   return (
-    <nav
-      style={{
-        position: "relative",
-        zIndex: 100,
-        background: "transparent",
-        borderBottom: "1px solid transparent",
-      }}
-    >
-      <div
-        className="container"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          height: "64px",
-        }}
-      >
-        {/* Logo */}
-        <Link
-          href="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <span
-            style={{
-              display: "grid",
-              width: "28px",
-              height: "28px",
-              placeItems: "center",
-              borderRadius: "7px",
-              background: "var(--accent)",
-              color: "#050505",
-              fontSize: "14px",
-              fontWeight: 800,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            N
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontWeight: 700,
-              fontSize: "17px",
-              color: "var(--gray-12)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Nodsend
-          </span>
-        </Link>
-
-        {/* Center nav links */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          <Link href="/docs" className="nav-link">
-            Docs
-          </Link>
-          <Link href="/pricing" className="nav-link">
-            Pricing
-          </Link>
-          <Link href="/faq" className="nav-link">
-            FAQ
-          </Link>
-          <Link href="/blog" className="nav-link">
-            Blog
-          </Link>
+    <nav className="site-nav" aria-label="Primary navigation">
+      <div className="container site-nav-inner">
+        <Brand />
+        <div className="site-nav-links">
+          {links.map((link) => <Link key={link.href} href={link.href} className="nav-link">{link.label}</Link>)}
         </div>
-
-        {/* Right actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="site-nav-actions">
           {isLoggedIn ? (
-            <Link href="/dashboard" className="btn-primary">
-              Dashboard
-            </Link>
+            <Link href="/dashboard" className="btn-primary btn-compact">Open console <Icon name="arrow" size={14} /></Link>
           ) : (
             <>
-              <Link href="/login" className="nav-link">
-                Sign in
-              </Link>
-              <Link href="/signup" className="btn-primary">
-                Get started free
-              </Link>
+              <Link href="/login" className="nav-link">Sign in</Link>
+              <Link href="/signup" className="btn-primary btn-compact">Start free <Icon name="arrow" size={14} /></Link>
             </>
           )}
+          <button className="site-mobile-trigger" type="button" aria-label="Toggle menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+            <Icon name={open ? "x" : "menu"} size={20} />
+          </button>
         </div>
       </div>
+      {open && (
+        <div className="site-mobile-menu">
+          {links.map((link) => <Link key={link.href} href={link.href} className="nav-link" onClick={() => setOpen(false)}>{link.label}</Link>)}
+          <Link href={isLoggedIn ? "/dashboard" : "/login"} className="nav-link" onClick={() => setOpen(false)}>{isLoggedIn ? "Open console" : "Sign in"}</Link>
+          {!isLoggedIn && <Link href="/signup" className="btn-primary">Start free</Link>}
+        </div>
+      )}
     </nav>
   );
 }

@@ -9,11 +9,12 @@ When an AI agent is about to take a consequential action, it sends a POST reques
 https://api.nodsend.com
 
 ## Authentication
-Bearer token: Authorization: Bearer nod_live_xxxx
+Bearer token: Authorization: Bearer appr_live_xxxx
 
 ## Core endpoint
 POST /v1/approvals
 Content-Type: application/json
+Idempotency-Key: your-stable-operation-id
 {
   "action": "string",
   "summary": "string (max 500 chars)",
@@ -21,8 +22,15 @@ Content-Type: application/json
   "channel": "email",
   "recipient": "human@example.com",
   "expires_in": "1h",
-  "webhook_url": "https://your-agent/webhook"
+  "webhook_id": "registered-webhook-id",
+  "external_id": "your-workflow-id",
+  "metadata": {}
 }
+
+Create and cancel requests require an Idempotency-Key. Webhook destinations
+must be registered in the Nodsend console before their ID is used on an
+approval. Verify Nodsend-Webhook-Signature over
+<event_id>.<timestamp>.<raw_request_body> before resuming a workflow.
 
 ## Documentation
 https://nodsend.com/docs

@@ -1,36 +1,52 @@
 import crypto from "node:crypto";
 
-const SECRET = process.env.APPROVAL_TOKEN_SECRET || crypto.randomBytes(32).toString("hex");
-
 /**
- * Generates a signed token for an approval's approve/reject links.
- * The token is embedded in the URL so the human doesn't need to log in.
- * Format: <random-id>.<hmac-signature>
+ * Generates a high-entropy, opaque decision token. Only its SHA-256 digest is
+ * persisted. The raw token is delivered to the human approver and is never
+ * returned to the requesting agent.
  */
-export function generateApprovalToken(approvalId) {
-  const random = crypto.randomBytes(16).toString("hex");
-  const payload = `${approvalId}.${random}`;
-  const signature = crypto.createHmac("sha256", SECRET).update(payload).digest("hex");
-  return `${payload}.${signature}`;
+export function generateApprovalToken() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+export function hashApprovalToken(token) {
+  if (!token || typeof token !== "string") return null;
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 /**
- * Verifies a signed approval token from an approve/reject URL.
- * Returns the approval ID if valid, null if tampered or malformed.
+ * One-way migration for links issued by the pre-v1 prototype, which stored the
+ * raw signed token. Existing links continue to work because reviewers still
+ * present that raw value and all lookups now compare its SHA-256 digest.
  */
-export function verifyApprovalToken(token) {
-  if (!token || typeof token !== "string") return null;
+export async function migrateLegacyApprovalTokens({ prisma, batchSize = 250 }) {
+  let cursor = null;
+  let migrated = 0;
 
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
+  for (;;) {
+    const approvals = await prisma.approval.findMany({
+      orderBy: { id: "asc" },
+      take: batchSize,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: { id: true, approvalToken: true },
+    });
+    if (approvals.length === 0) break;
 
-  const [approvalId, random, signature] = parts;
-  const payload = `${approvalId}.${random}`;
-  const expectedSignature = crypto.createHmac("sha256", SECRET).update(payload).digest("hex");
+    for (const approval of approvals) {
+      if (!/^[a-f0-9]{64}$/i.test(approval.approvalToken)) {
+        const updated = await prisma.approval.updateMany({
+          where: { id: approval.id, approvalToken: approval.approvalToken },
+          data: { approvalToken: hashApprovalToken(approval.approvalToken) },
+        });
+        migrated += updated.count;
+      }
+    }
 
-  if (signature !== expectedSignature) return null;
+    cursor = approvals.at(-1).id;
+    if (approvals.length < batchSize) break;
+  }
 
-  return approvalId;
+  return migrated;
 }
 
 /**

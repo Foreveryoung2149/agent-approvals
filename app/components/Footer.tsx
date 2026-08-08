@@ -1,70 +1,30 @@
 import Link from "next/link";
+import { Brand } from "./Brand";
+
+const groups = [
+  { title: "Product", links: [["How it works", "/#how-it-works"], ["Integrations", "/#integrations"], ["Pricing", "/pricing"]] },
+  { title: "Developers", links: [["Documentation", "/docs"], ["API reference", "/docs#quick-start"], ["Webhooks", "/docs#webhooks"]] },
+  { title: "Company", links: [["FAQ", "/faq"], ["Blog", "/blog"], ["Security", "/docs#security"]] },
+];
 
 export default function Footer() {
   return (
-    <footer
-      style={{
-        borderTop: "1px solid var(--gray-3)",
-        padding: "48px 0",
-        marginTop: "auto",
-      }}
-    >
-      <div
-        className="container"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span
-            style={{
-              display: "grid",
-              width: "22px",
-              height: "22px",
-              placeItems: "center",
-              borderRadius: "5px",
-              background: "var(--accent)",
-              color: "#050505",
-              fontSize: "11px",
-              fontWeight: 800,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            N
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontWeight: 600,
-              fontSize: "14px",
-              color: "var(--gray-9)",
-            }}
-          >
-            Nodsend
-          </span>
+    <footer className="site-footer">
+      <div className="container footer-grid">
+        <div className="footer-about">
+          <Brand />
+          <p>The independent human approval layer for consequential agent actions. One API, every framework, complete auditability.</p>
         </div>
-
-        <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-          <Link
-            href="/docs"
-            style={{ color: "var(--gray-8)", fontSize: "13px" }}
-          >
-            Docs
-          </Link>
-          <Link
-            href="/pricing"
-            style={{ color: "var(--gray-8)", fontSize: "13px" }}
-          >
-            Pricing
-          </Link>
-          <span style={{ color: "var(--gray-6)", fontSize: "13px" }}>
-            © {new Date().getFullYear()} Nodsend
-          </span>
-        </div>
+        {groups.map((group) => (
+          <div className="footer-col" key={group.title}>
+            <h3>{group.title}</h3>
+            {group.links.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
+          </div>
+        ))}
+      </div>
+      <div className="container footer-bottom">
+        <span>© {new Date().getFullYear()} Nodsend. Built for accountable autonomy.</span>
+        <span className="status-online">All systems operational</span>
       </div>
     </footer>
   );
