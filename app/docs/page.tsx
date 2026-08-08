@@ -78,6 +78,24 @@ Body:
 }`}
         </pre>
 
+        <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>Webhook management</h2>
+        <p style={{ color: "var(--muted)", marginBottom: "16px" }}>Create and manage webhook endpoints that receive signed notifications when approvals are decided, expire, or are cancelled.</p>
+        <pre style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", fontSize: "13px", overflow: "auto", marginBottom: "24px", color: "var(--muted)" }}>
+{`POST /v1/webhooks
+Authorization: Bearer <session-token>
+Content-Type: application/json
+
+{
+  "url": "https://your-agent.com/webhooks",
+  "events": ["approval.approved", "approval.rejected", "approval.expired"]
+}
+
+Response: {
+  "id": "...", "url": "...", "secret": "whsec_...",
+  "events": [...], "active": true
+}`}
+        </pre>
+
         <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>All endpoints</h2>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
           <tbody>

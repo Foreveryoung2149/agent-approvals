@@ -9,6 +9,7 @@ import { usageTracker } from "./middleware/usage-tracker.js";
 import { approvalsRouter } from "./routes/approvals.js";
 import { authRouter } from "./routes/auth.js";
 import { apiKeysRouter } from "./routes/api-keys.js";
+import { webhooksRouter } from "./routes/webhooks.js";
 
 const app = express();
 const port = process.env.PORT || 3002;
@@ -39,6 +40,9 @@ app.use("/v1/auth", authRouter);
 
 // API key management (session-based, no API key needed)
 app.use("/v1/api-keys", apiKeysRouter);
+
+// Webhook management (session-based, no API key needed)
+app.use("/v1/webhooks", webhooksRouter);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
