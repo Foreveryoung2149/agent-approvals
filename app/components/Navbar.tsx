@@ -17,7 +17,6 @@ export default function Navbar() {
         position: "sticky",
         top: 0,
         zIndex: 100,
-        borderBottom: "1px solid var(--gray-3)",
         background: "rgba(5, 5, 5, 0.85)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
