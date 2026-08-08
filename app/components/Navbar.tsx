@@ -6,27 +6,18 @@ import { getSessionToken } from "../lib/api";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     setIsLoggedIn(!!getSessionToken());
-    
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
     <nav
       style={{
-        position: "sticky",
-        top: 0,
+        position: "relative",
         zIndex: 100,
-        background: scrolled ? "rgba(5, 5, 5, 0.85)" : "transparent",
-        backdropFilter: scrolled ? "blur(16px)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(16px)" : "none",
-        borderBottom: scrolled ? "1px solid var(--gray-3)" : "1px solid transparent",
-        transition: "all 0.2s ease-in-out",
+        background: "transparent",
+        borderBottom: "1px solid transparent",
       }}
     >
       <div
