@@ -8,5 +8,5 @@ if [ "$RAILWAY_SERVICE_NAME" = "api" ]; then
   node api-server/server.js
 else
   echo "[Agent Approvals] Starting web server..."
-  next start -p $PORT
+  npx next start -p $PORT
 fi
