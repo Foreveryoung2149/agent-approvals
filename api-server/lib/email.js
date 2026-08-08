@@ -164,6 +164,59 @@ export async function sendPasswordResetEmail({ email, code, name }) {
   }
 }
 
+/**
+ * Sends an email verification email with a 6-digit code.
+ */
+export async function sendVerificationEmail({ email, code, name }) {
+  const resend = await getResend();
+  if (!resend) {
+    console.warn("[Nodsend] No RESEND_API_KEY configured. Skipping verification email.");
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const html = `
+  <div style="margin:0;background:#050505;font-family:Arial,Helvetica,sans-serif;color:#e8e8e8;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:#0a0a0a;border:1px solid #232323;border-radius:12px;">
+          <tr><td style="padding:32px;">
+            <div style="text-align:center;margin-bottom:24px;">
+              <div style="display:inline-block;width:32px;height:32px;line-height:32px;text-align:center;background:#c8e64a;color:#050505;border-radius:7px;font-weight:800;font-size:14px;font-family:monospace;">N</div>
+            </div>
+            <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#f0f0f0;text-align:center;">Verify your email</h1>
+            <p style="margin:0 0 24px;color:#858585;font-size:14px;line-height:1.5;text-align:center;">
+              ${name ? `Hi ${escapeHtml(name)}, welcome` : "Welcome"} to Nodsend! Use this code to verify your email address. It expires in 15 minutes.
+            </p>
+            <div style="background:#111111;border:1px solid #2e2e2e;border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">
+              <p style="margin:0;font-family:monospace;font-size:32px;font-weight:700;letter-spacing:0.2em;color:#c8e64a;">${code}</p>
+            </div>
+          </td></tr>
+        </table>
+        <p style="margin:24px 0 0;color:#3a3a3a;font-size:11px;text-align:center;">Nodsend — nodsend.com</p>
+      </td></tr>
+    </table>
+  </div>`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: `Your Nodsend verification code: ${code}`,
+      html,
+      text: `Your Nodsend verification code is: ${code}\n\nThis code expires in 15 minutes.`,
+    });
+
+    if (error) {
+      console.error("[Nodsend] Verification email error:", error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, emailId: data?.id };
+  } catch (err) {
+    console.error("[Nodsend] Verification email failed:", err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)

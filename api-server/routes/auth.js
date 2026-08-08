@@ -3,7 +3,8 @@ import { randomInt, createHash } from "node:crypto";
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "../middleware/session-auth.js";
 import { signSession } from "../lib/session.js";
-import { sendPasswordResetEmail } from "../lib/email.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/email.js";
+import { authenticator } from "otplib";
 
 export const authRouter = Router();
 
@@ -22,6 +23,9 @@ const loginSchema = z.object({
 const resetCodes = new Map(); // key: email, value: { codeHash, expiresAt, attempts }
 const RESET_CODE_TTL = 15 * 60 * 1000; // 15 minutes
 const MAX_RESET_ATTEMPTS = 5;
+
+// In-memory store for verification codes
+const verificationCodes = new Map(); // key: email, value: { codeHash, expiresAt, attempts }
 
 function hashCode(code) {
   return createHash("sha256").update(code).digest("hex");
@@ -53,20 +57,31 @@ authRouter.post("/signup", async (req, res, next) => {
         email: input.email,
         passwordHash: pwHash,
         name: input.name || null,
-        emailVerified: true, // Auto-verify for MVP (add email verification later)
+        emailVerified: false,
       },
     });
 
-    const token = signSession(user);
+    // Generate 6-digit verification code
+    const code = String(randomInt(100000, 999999));
+    verificationCodes.set(user.email.toLowerCase(), {
+      codeHash: hashCode(code),
+      expiresAt: Date.now() + RESET_CODE_TTL,
+      attempts: 0,
+    });
 
+    // Send email (fire and forget)
+    sendVerificationEmail({ email: user.email, code, name: user.name }).catch((err) => {
+      console.error("[Nodsend] Failed to send verification email:", err);
+    });
+
+    // Don't return session token yet, return requirement for verification
     return res.status(201).json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        plan: user.plan.toLowerCase(),
       },
-      token,
+      requireVerification: true
     });
   } catch (error) {
     if (error.name === "ZodError") {
@@ -167,6 +182,104 @@ authRouter.get("/me", async (req, res, next) => {
   }
 });
 
+/** POST /v1/auth/verify-email — Verify email with 6-digit code. */
+authRouter.post("/verify-email", async (req, res, next) => {
+  try {
+    const { email, code } = req.body || {};
+    if (!email || !code) {
+      return res.status(400).json({
+        error: { code: "invalid_request", message: "Email and code are required." },
+      });
+    }
+
+    const stored = verificationCodes.get(email.toLowerCase());
+    if (!stored) {
+      return res.status(400).json({
+        error: { code: "invalid_code", message: "No verification code found. Please request a new one." },
+      });
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      verificationCodes.delete(email.toLowerCase());
+      return res.status(400).json({
+        error: { code: "code_expired", message: "Verification code has expired. Please request a new one." },
+      });
+    }
+
+    if (stored.attempts >= MAX_RESET_ATTEMPTS) {
+      verificationCodes.delete(email.toLowerCase());
+      return res.status(429).json({
+        error: { code: "too_many_attempts", message: "Too many attempts. Please request a new code." },
+      });
+    }
+
+    stored.attempts++;
+
+    if (hashCode(code) !== stored.codeHash) {
+      return res.status(400).json({
+        error: { code: "invalid_code", message: "Invalid verification code." },
+      });
+    }
+
+    // Code is valid
+    const user = await req.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (!user) {
+      return res.status(404).json({ error: { code: "user_not_found", message: "User not found." } });
+    }
+
+    await req.prisma.user.update({
+      where: { email: user.email },
+      data: { emailVerified: true },
+    });
+
+    verificationCodes.delete(email.toLowerCase());
+
+    const token = signSession(user);
+
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        plan: user.plan.toLowerCase(),
+      },
+      token,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+/** POST /v1/auth/resend-verification — Resend verification email. */
+authRouter.post("/resend-verification", async (req, res, next) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({
+        error: { code: "invalid_request", message: "Email is required." },
+      });
+    }
+
+    const user = await req.prisma?.user?.findUnique({ where: { email: email.toLowerCase() } });
+    if (user && !user.emailVerified) {
+      const code = String(randomInt(100000, 999999));
+      verificationCodes.set(email.toLowerCase(), {
+        codeHash: hashCode(code),
+        expiresAt: Date.now() + RESET_CODE_TTL,
+        attempts: 0,
+      });
+
+      sendVerificationEmail({ email: user.email, code, name: user.name }).catch((err) => {
+        console.error("[Nodsend] Failed to resend verification email:", err);
+      });
+    }
+
+    return res.json({ ok: true, message: "If an unverified account exists, a new code has been sent." });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 /** POST /v1/auth/forgot-password — Request a password reset code. */
 authRouter.post("/forgot-password", async (req, res, next) => {
   try {
@@ -257,6 +370,72 @@ authRouter.post("/reset-password", async (req, res, next) => {
     resetCodes.delete(email.toLowerCase());
 
     return res.json({ ok: true, message: "Password updated successfully. Please sign in." });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+/** POST /v1/auth/2fa/generate — Generate a new 2FA secret (requires auth). */
+authRouter.post("/2fa/generate", async (req, res, next) => {
+  try {
+    const { verifySessionToken } = await import("../lib/session.js");
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ error: { code: "unauthorized", message: "Missing session token." } });
+    }
+
+    const session = verifySessionToken(token);
+    if (!session) {
+      return res.status(401).json({ error: { code: "invalid_session", message: "Invalid session." } });
+    }
+
+    const user = await req.prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user) {
+      return res.status(404).json({ error: { code: "user_not_found", message: "User not found." } });
+    }
+
+    const secret = authenticator.generateSecret();
+    const uri = authenticator.keyuri(user.email, "Nodsend", secret);
+
+    return res.json({
+      secret,
+      uri
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+/** POST /v1/auth/2fa/enable — Verify and enable 2FA (requires auth). */
+authRouter.post("/2fa/enable", async (req, res, next) => {
+  try {
+    const { verifySessionToken } = await import("../lib/session.js");
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    const { code, secret } = req.body || {};
+
+    if (!token) return res.status(401).json({ error: { code: "unauthorized" } });
+    if (!code || !secret) return res.status(400).json({ error: { code: "invalid_request", message: "Code and secret required" } });
+
+    const session = verifySessionToken(token);
+    if (!session) return res.status(401).json({ error: { code: "invalid_session" } });
+
+    const isValid = authenticator.verify({ token: code, secret });
+    if (!isValid) {
+      return res.status(400).json({ error: { code: "invalid_code", message: "Invalid verification code." } });
+    }
+
+    await req.prisma.user.update({
+      where: { id: session.userId },
+      data: {
+        twoFactorEnabled: true,
+        twoFactorSecret: secret
+      }
+    });
+
+    return res.json({ ok: true });
   } catch (error) {
     return next(error);
   }
