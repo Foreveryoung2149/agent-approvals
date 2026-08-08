@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "npm run prisma:generate",
     "dev": "next dev",
     "dev:api": "node --watch api-server/server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
@@ -15,13 +16,15 @@
     "start": "next start",
     "start:api": "node api-server/server.js",
     "railway:web": "next start -p $PORT",
-    "railway:api": "npx prisma generate --schema api-server/prisma/schema.prisma && npx prisma migrate deploy --schema api-server/prisma/schema.prisma && npm run start:api",
-    "db:migrate": "cd api-server && npx prisma migrate dev",
-    "db:generate": "cd api-server && npx prisma generate",
-    "db:studio": "cd api-server && npx prisma studio"
+    "railway:api": "npm run prisma:migrate:deploy && npm run start:api",
+    "prisma:generate": "prisma generate --schema api-server/prisma/schema.prisma",
+    "prisma:migrate:deploy": "prisma migrate deploy --schema api-server/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema api-server/prisma/schema.prisma",
+    "db:generate": "npm run prisma:generate",
+    "db:studio": "prisma studio --schema api-server/prisma/schema.prisma"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "6.19.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
@@ -30,7 +33,7 @@
     "jsonwebtoken": "^9.0.3",
     "next": "^16.3.0",
     "otplib": "^13.4.1",
-    "prisma": "^6.19.3",
+    "prisma": "6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.18.1",

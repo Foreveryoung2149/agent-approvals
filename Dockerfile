@@ -7,12 +7,13 @@ RUN apt-get update -y \
 
 FROM base AS dependencies
 COPY package*.json ./
+COPY api-server/prisma/schema.prisma ./api-server/prisma/schema.prisma
 RUN npm ci
 
 FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate --schema api-server/prisma/schema.prisma
+RUN npm run prisma:generate
 RUN npm run build
 RUN npm prune --omit=dev
 

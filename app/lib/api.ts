@@ -13,13 +13,22 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     ...(options.headers as Record<string, string> || {}),
   };
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  try {
+    return await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === "AbortError") {
+      throw cause;
+    }
 
-  return response;
+    throw new Error(
+      "Nodsend's API is temporarily unavailable. Please try again in a moment.",
+      { cause },
+    );
+  }
 }
 
 export { API_URL };

@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Pricing", description: "Start adding
 
 const plans = [
   { name: "Build", price: "$0", cadence: "forever", state: "Available", description: "For prototypes and production pilots.", cta: "Start building", href: "/signup", features: ["100 approval requests / month", "Email decision delivery", "Signed webhook outcomes", "Decision audit history", "LangChain, CrewAI, and AutoGen adapters"] },
-  { name: "Operate", price: "$19", cadence: "per month", state: "Early access", description: "For growing, customer-facing workflows.", cta: "Join early access", href: "mailto:hello@nodsend.com?subject=Nodsend%20Operate", features: ["1,000 approval requests / month", "Everything in Build", "Longer event retention", "Priority support", "Usage export"] },
-  { name: "Scale", price: "Custom", cadence: "annual agreement", state: "Talk to us", description: "For higher-volume and regulated teams.", cta: "Contact us", href: "mailto:hello@nodsend.com?subject=Nodsend%20Scale", features: ["Custom approval volume", "Everything in Operate", "Data-retention controls", "Architecture review", "Custom support agreement"] },
+  { name: "Operate", price: "$19", cadence: "per month", state: "Early access", description: "For growing, customer-facing workflows.", cta: "Join early access", href: "/contact#early-access", features: ["1,000 approval requests / month", "Everything in Build", "Longer event retention", "Priority support", "Usage export"] },
+  { name: "Scale", price: "Custom", cadence: "annual agreement", state: "Talk to us", description: "For higher-volume and regulated teams.", cta: "Contact us", href: "/contact#enterprise", features: ["Custom approval volume", "Everything in Operate", "Data-retention controls", "Architecture review", "Custom support agreement"] },
 ];
 
 export default function PricingPage() {

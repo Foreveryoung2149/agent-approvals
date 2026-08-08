@@ -4,7 +4,7 @@ import { Brand } from "./Brand";
 const groups = [
   { title: "Product", links: [["How it works", "/#how-it-works"], ["Integrations", "/#integrations"], ["Pricing", "/pricing"]] },
   { title: "Developers", links: [["Documentation", "/docs"], ["API reference", "/docs#quick-start"], ["Webhooks", "/docs#webhooks"]] },
-  { title: "Company", links: [["FAQ", "/faq"], ["Blog", "/blog"], ["Security", "/docs#security"]] },
+  { title: "Company", links: [["Contact", "/contact"], ["FAQ", "/faq"], ["Blog", "/blog"], ["Security", "/docs#security"], ["Privacy", "/privacy"], ["Terms", "/terms"]] },
 ];
 
 export default function Footer() {
@@ -24,7 +24,11 @@ export default function Footer() {
       </div>
       <div className="container footer-bottom">
         <span>© {new Date().getFullYear()} Nodsend. Built for accountable autonomy.</span>
-        <span className="status-online">All systems operational</span>
+        <div className="footer-meta">
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <span className="status-online">All systems operational</span>
+        </div>
       </div>
     </footer>
   );

@@ -11,6 +11,7 @@ const links = [
   { href: "/#integrations", label: "Integrations" },
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
+  { href: "/contact", label: "Contact" },
 ];
 
 export default function Navbar() {
