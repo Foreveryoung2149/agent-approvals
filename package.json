@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:api": "node --watch api-server/server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "build": "next build",
     "start": "next start",
     "start:api": "node api-server/server.js",
@@ -16,32 +17,28 @@
     "db:studio": "cd api-server && npx prisma studio"
   },
   "dependencies": {
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "express": "^4.21.0",
-    "@prisma/client": "^6.1.0",
-    "zod": "^3.24.0",
-    "resend": "^4.0.0",
-    "stripe": "^17.0.0",
-    "bcryptjs": "^2.4.3",
-    "otplib": "^12.0.3",
-    "uuid": "^11.0.0",
-    "dotenv": "^16.4.0",
+    "@prisma/client": "^6.11.1",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
-    "helmet": "^8.0.0"
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "next": "16.2.10",
+    "otplib": "^13.4.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "resend": "^6.18.1",
+    "stripe": "^22.3.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@types/express": "^5.0.0",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.17",
-    "prisma": "^6.1.0",
-    "tailwindcss": "^3.4.0",
-    "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0"
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.2.0",
+    "prisma": "^6.11.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
