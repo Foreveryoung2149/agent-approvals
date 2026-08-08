@@ -29,7 +29,7 @@ app.use((req, _res, next) => {
 
 // Health check — no auth required
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "agent-approvals-api", database: prisma ? "connected" : "not_configured" });
+  res.json({ ok: true, service: "nodsend-api", database: prisma ? "connected" : "not_configured" });
 });
 
 // API routes — all require API key auth + rate limiting + usage tracking
@@ -46,14 +46,14 @@ app.use("/v1/webhooks", webhooksRouter);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
-  console.error("[Agent Approvals] Unhandled error:", err);
+  console.error("[Nodsend] Unhandled error:", err);
   res.status(500).json({
     error: { code: "internal_error", message: "An unexpected error occurred." },
   });
 });
 
 app.listen(port, () => {
-  console.log(`[Agent Approvals] API server running on http://localhost:${port}`);
-  console.log(`[Agent Approvals] Database: ${prisma ? "connected" : "not configured (set DATABASE_URL)"}`);
-  console.log(`[Agent Approvals] Dev key: ${process.env.DEV_API_KEY || "appr_dev_devkey"}`);
+  console.log(`[Nodsend] API server running on http://localhost:${port}`);
+  console.log(`[Nodsend] Database: ${prisma ? "connected" : "not configured (set DATABASE_URL)"}`);
+  console.log(`[Nodsend] Dev key: ${process.env.DEV_API_KEY || "nod_dev_devkey"}`);
 });

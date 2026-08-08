@@ -1,0 +1,28 @@
+# Nodsend
+
+Nodsend is a Human-in-the-Loop (HITL) approval API for AI agents.
+
+## What it does
+When an AI agent is about to take a consequential action, it sends a POST request to api.nodsend.com/v1/approvals. Nodsend delivers the request to a human via email, waits for their approval or rejection, and notifies the agent via webhook.
+
+## API Base URL
+https://api.nodsend.com
+
+## Authentication
+Bearer token: Authorization: Bearer nod_live_xxxx
+
+## Core endpoint
+POST /v1/approvals
+Content-Type: application/json
+{
+  "action": "string",
+  "summary": "string (max 500 chars)",
+  "details": {},
+  "channel": "email",
+  "recipient": "human@example.com",
+  "expires_in": "1h",
+  "webhook_url": "https://your-agent/webhook"
+}
+
+## Documentation
+https://nodsend.com/docs

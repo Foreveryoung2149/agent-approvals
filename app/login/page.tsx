@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, setSessionToken } from "../lib/api";
+import Navbar from "../components/Navbar";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +34,7 @@ export default function LoginPage() {
 
       setSessionToken(data.token);
       router.push("/dashboard");
-    } catch (err) {
+    } catch {
       setError("Network error — is the API server running?");
       setLoading(false);
     }
@@ -41,60 +42,120 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", borderBottom: "1px solid var(--border)" }}>
-        <Link href="/" style={{ fontWeight: 700, fontSize: "18px", color: "var(--text)" }}>Agent Approvals</Link>
-        <Link href="/signup" style={{ color: "var(--muted)", fontSize: "14px" }}>Sign up</Link>
-      </nav>
+      <Navbar />
 
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px" }}>
-        <div style={{ maxWidth: "420px", width: "100%" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: 700, marginBottom: "8px" }}>Welcome back</h1>
-          <p style={{ color: "var(--muted)", fontSize: "15px", marginBottom: "32px" }}>Log in to manage your API keys and approvals.</p>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "48px 24px",
+        }}
+      >
+        <div className="auth-card">
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "32px" }}>
+            <span
+              style={{
+                display: "inline-grid",
+                width: "40px",
+                height: "40px",
+                placeItems: "center",
+                borderRadius: "10px",
+                background: "var(--accent)",
+                color: "#050505",
+                fontSize: "18px",
+                fontWeight: 800,
+                fontFamily: "var(--font-mono)",
+                marginBottom: "20px",
+              }}
+            >
+              N
+            </span>
+            <h1
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "24px",
+                fontWeight: 700,
+                color: "var(--gray-12)",
+                margin: "0 0 8px",
+              }}
+            >
+              Welcome back
+            </h1>
+            <p style={{ color: "var(--gray-9)", fontSize: "14px", margin: 0 }}>
+              Sign in to manage your approvals and API keys.
+            </p>
+          </div>
 
-          {error && (
-            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid var(--red)", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", color: "var(--red)", fontSize: "14px" }}>
-              {error}
-            </div>
-          )}
+          {error && <div className="alert-error" style={{ marginBottom: "20px" }}>{error}</div>}
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
             <div>
-              <label style={{ display: "block", fontSize: "14px", color: "var(--muted)", marginBottom: "6px" }}>Email</label>
+              <label className="label">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                style={{ width: "100%", padding: "12px 16px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text)", fontSize: "15px", outline: "none" }}
+                className="input"
                 placeholder="you@company.com"
               />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: "14px", color: "var(--muted)", marginBottom: "6px" }}>Password</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label className="label" style={{ marginBottom: 0 }}>Password</label>
+                <Link
+                  href="/forgot-password"
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--accent)",
+                    fontWeight: 500,
+                  }}
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={{ width: "100%", padding: "12px 16px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text)", fontSize: "15px", outline: "none" }}
+                className="input"
+                style={{ marginTop: "6px" }}
                 placeholder="Your password"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
+              className="btn-primary"
               style={{
-                width: "100%", padding: "14px", border: "none", borderRadius: "8px",
-                background: "var(--blue)", color: "#fff", fontSize: "16px", fontWeight: 600,
-                cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1,
+                width: "100%",
+                minHeight: "48px",
+                fontSize: "15px",
+                marginTop: "4px",
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
               }}
             >
-              {loading ? "Logging in..." : "Log in"}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
-          <p style={{ marginTop: "24px", textAlign: "center", color: "var(--dim)", fontSize: "14px" }}>
-            New here? <Link href="/signup" style={{ color: "var(--blue)" }}>Create an account</Link>
+          <p
+            style={{
+              marginTop: "28px",
+              textAlign: "center",
+              color: "var(--gray-8)",
+              fontSize: "14px",
+            }}
+          >
+            New here?{" "}
+            <Link href="/signup" style={{ color: "var(--accent)", fontWeight: 600 }}>
+              Create an account
+            </Link>
           </p>
         </div>
       </div>

@@ -1,30 +1,51 @@
-import Link from "next/link";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
 export const metadata = {
-  title: "Docs — Agent Approvals",
-  description: "API reference for Agent Approvals — create approval requests, check status, approve/reject, webhooks.",
+  title: "Docs — Nodsend",
+  description: "API reference for Nodsend — human-in-the-loop approval API for AI agents.",
 };
 
 export default function DocsPage() {
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", borderBottom: "1px solid var(--border)" }}>
-        <Link href="/" style={{ fontWeight: 700, fontSize: "18px", color: "var(--text)" }}>Agent Approvals</Link>
-        <Link href="/signup" style={{ background: "var(--blue)", color: "#fff", padding: "8px 16px", borderRadius: "8px", fontSize: "14px", fontWeight: 600 }}>Get a key</Link>
-      </nav>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Navbar />
 
-      <div style={{ maxWidth: "760px", margin: "0 auto", padding: "48px 32px" }}>
-        <h1 style={{ fontSize: "32px", fontWeight: 800, marginBottom: "8px" }}>API Reference</h1>
-        <p style={{ color: "var(--muted)", fontSize: "16px", marginBottom: "40px" }}>
-          Base URL: <code style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "4px" }}>https://api.agentapprovals.dev</code>
-          {" — Auth: Bearer token (API key prefixed with appr_live_…)"}
+      <div style={{ maxWidth: "780px", margin: "0 auto", padding: "56px 32px", flex: 1 }}>
+        <h1
+          className="heading-display"
+          style={{ fontSize: "36px", color: "var(--gray-12)", margin: "0 0 8px" }}
+        >
+          API Reference
+        </h1>
+        <p style={{ color: "var(--gray-9)", fontSize: "16px", marginBottom: "48px" }}>
+          Base URL:{" "}
+          <code style={{ background: "var(--gray-3)", padding: "3px 8px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontSize: "14px" }}>
+            https://api.nodsend.com
+          </code>
+          {" — Auth: "}
+          <code style={{ background: "var(--gray-3)", padding: "3px 8px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontSize: "14px" }}>
+            Bearer nod_live_…
+          </code>
         </p>
 
-        <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>Create an approval</h2>
-        <p style={{ color: "var(--muted)", marginBottom: "16px" }}>Your agent calls this when it wants to do something that needs human sign-off.</p>
-        <pre style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", fontSize: "13px", overflow: "auto", marginBottom: "24px", color: "var(--muted)" }}>
-{`POST /v1/approvals
-Authorization: Bearer appr_live_...
+        {/* Quick Start */}
+        <Section title="Quick start">
+          <p style={{ color: "var(--gray-9)", marginBottom: "16px", lineHeight: 1.7, fontSize: "15px" }}>
+            1. Sign up at <a href="/signup" style={{ color: "var(--accent)", fontWeight: 600 }}>nodsend.com/signup</a> and grab your API key.<br />
+            2. POST to <code style={codeInline}>/v1/approvals</code> with the action, summary, and recipient.<br />
+            3. We email the human. They click approve or reject.<br />
+            4. We fire a signed webhook to your callback URL.
+          </p>
+        </Section>
+
+        {/* Create approval */}
+        <Section title="Create an approval">
+          <p style={{ color: "var(--gray-9)", marginBottom: "16px", lineHeight: 1.7, fontSize: "15px" }}>
+            Your agent calls this when it wants to do something that needs human sign-off.
+          </p>
+          <CodeBlock>{`POST /v1/approvals
+Authorization: Bearer nod_live_...
 Content-Type: application/json
 
 {
@@ -35,12 +56,12 @@ Content-Type: application/json
   "recipient": "founder@company.com",
   "expires_in": "1h",
   "webhook_url": "https://your-agent.com/webhooks"
-}`}
-        </pre>
+}`}</CodeBlock>
+        </Section>
 
-        <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>Response</h2>
-        <pre style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", fontSize: "13px", overflow: "auto", marginBottom: "24px", color: "var(--muted)" }}>
-{`{
+        {/* Response */}
+        <Section title="Response">
+          <CodeBlock>{`{
   "id": "clk...",
   "status": "pending",
   "action": "book_flight",
@@ -49,17 +70,45 @@ Content-Type: application/json
   "recipient": "founder@company.com",
   "expires_at": "2026-08-07T20:00:00.000Z",
   "created_at": "2026-08-07T19:00:00.000Z",
-  "approve_url": "https://agentapprovals.dev/a/clk.../approve?t=...",
-  "reject_url": "https://agentapprovals.dev/a/clk.../reject?t=..."
-}`}
-        </pre>
+  "approve_url": "https://nodsend.com/a/clk.../approve?t=...",
+  "reject_url": "https://nodsend.com/a/clk.../reject?t=..."
+}`}</CodeBlock>
+        </Section>
 
-        <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>Webhook payload</h2>
-        <p style={{ color: "var(--muted)", marginBottom: "16px" }}>When the human decides, we POST this to your webhook_url. Verify the HMAC-SHA256 signature.</p>
-        <pre style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", fontSize: "13px", overflow: "auto", marginBottom: "24px", color: "var(--muted)" }}>
-{`Headers:
-  Approval-Signature: t=<timestamp>,v1=<hex-signature>
-  Approval-Event: approval.approved
+        {/* Parameters */}
+        <Section title="Parameters">
+          <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Required</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {params.map((p) => (
+                  <tr key={p.field}>
+                    <td><code style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--accent-dim)" }}>{p.field}</code></td>
+                    <td style={{ fontSize: "13px" }}>{p.type}</td>
+                    <td style={{ fontSize: "13px" }}>{p.required ? "✓" : "—"}</td>
+                    <td style={{ fontSize: "13px" }}>{p.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+
+        {/* Webhook payload */}
+        <Section title="Webhook payload">
+          <p style={{ color: "var(--gray-9)", marginBottom: "16px", lineHeight: 1.7, fontSize: "15px" }}>
+            When the human decides, we POST this to your <code style={codeInline}>webhook_url</code>. Verify the HMAC-SHA256 signature.
+          </p>
+          <CodeBlock>{`Headers:
+  X-Nodsend-Signature: t=<timestamp>,v1=<hex-signature>
+  X-Nodsend-Event: approval.approved
 
 Body:
 {
@@ -75,45 +124,68 @@ Body:
     "decided_by": "founder@company.com",
     "decided_at": "2026-08-07T19:05:00.000Z"
   }
-}`}
-        </pre>
+}`}</CodeBlock>
+        </Section>
 
-        <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>Webhook management</h2>
-        <p style={{ color: "var(--muted)", marginBottom: "16px" }}>Create and manage webhook endpoints that receive signed notifications when approvals are decided, expire, or are cancelled.</p>
-        <pre style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", fontSize: "13px", overflow: "auto", marginBottom: "24px", color: "var(--muted)" }}>
-{`POST /v1/webhooks
-Authorization: Bearer <session-token>
-Content-Type: application/json
-
-{
-  "url": "https://your-agent.com/webhooks",
-  "events": ["approval.approved", "approval.rejected", "approval.expired"]
-}
-
-Response: {
-  "id": "...", "url": "...", "secret": "whsec_...",
-  "events": [...], "active": true
-}`}
-        </pre>
-
-        <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "12px" }}>All endpoints</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-          <tbody>
-            {endpoints.map((e) => (
-              <tr key={e.method + e.path} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "12px 0", width: "80px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 700, padding: "2px 8px", borderRadius: "4px", background: methodColor(e.method) }}>{e.method}</span>
-                </td>
-                <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>{e.path}</td>
-                <td style={{ padding: "12px 16px", color: "var(--muted)" }}>{e.desc}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* All endpoints */}
+        <Section title="All endpoints">
+          <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
+            <table className="data-table">
+              <tbody>
+                {endpoints.map((e) => (
+                  <tr key={e.method + e.path}>
+                    <td style={{ width: "80px" }}>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          fontFamily: "var(--font-mono)",
+                          padding: "3px 8px",
+                          borderRadius: "4px",
+                          background: methodColor(e.method),
+                          color: "#050505",
+                        }}
+                      >
+                        {e.method}
+                      </span>
+                    </td>
+                    <td>
+                      <code style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--gray-12)" }}>
+                        {e.path}
+                      </code>
+                    </td>
+                    <td style={{ color: "var(--gray-8)", fontSize: "13px" }}>{e.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
       </div>
+
+      <Footer />
     </div>
   );
 }
+
+const codeInline: React.CSSProperties = {
+  background: "var(--gray-3)",
+  padding: "2px 6px",
+  borderRadius: "4px",
+  fontFamily: "var(--font-mono)",
+  fontSize: "13px",
+};
+
+const params = [
+  { field: "action", type: "string", required: true, desc: 'Machine-readable action type, e.g. "book_flight"' },
+  { field: "summary", type: "string", required: true, desc: "Human-readable one-line summary (max 500 chars)" },
+  { field: "details", type: "object", required: false, desc: "Arbitrary metadata (shown to the human)" },
+  { field: "channel", type: "string", required: false, desc: '"email" (default), "slack", or "dashboard"' },
+  { field: "recipient", type: "string", required: true, desc: "Email address of the approver" },
+  { field: "expires_in", type: "string", required: false, desc: '"5m", "1h", "24h" — default "1h"' },
+  { field: "webhook_url", type: "string", required: false, desc: "URL to receive the decision webhook" },
+  { field: "agent_name", type: "string", required: false, desc: "Display name for the agent" },
+];
 
 const endpoints = [
   { method: "POST", path: "/v1/approvals", desc: "Create an approval request" },
@@ -126,5 +198,39 @@ const endpoints = [
 ];
 
 function methodColor(m: string) {
-  return m === "POST" ? "var(--blue)" : m === "GET" ? "var(--green)" : "var(--dim)";
+  return m === "POST" ? "var(--accent)" : m === "GET" ? "var(--success)" : "var(--gray-6)";
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section style={{ marginBottom: "48px" }}>
+      <h2
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "20px",
+          fontWeight: 700,
+          color: "var(--gray-12)",
+          margin: "0 0 16px",
+        }}
+      >
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function CodeBlock({ children }: { children: string }) {
+  return (
+    <div className="code-window" style={{ marginBottom: "24px" }}>
+      <div className="code-window-header">
+        <div className="code-dot" />
+        <div className="code-dot" />
+        <div className="code-dot" />
+      </div>
+      <pre>
+        <code>{children}</code>
+      </pre>
+    </div>
+  );
 }

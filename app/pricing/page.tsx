@@ -1,74 +1,109 @@
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Pricing — Agent Approvals",
-  description: "Free tier: 100 approvals/month. Startup: 1,000/month. Business: 10,000/month. Enterprise: unlimited.",
+  title: "Pricing — Nodsend",
+  description: "Start free with 100 approvals/month. Scale as your agents take more consequential actions.",
 };
 
 export default function PricingPage() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", borderBottom: "1px solid var(--border)" }}>
-        <Link href="/" style={{ fontWeight: 700, fontSize: "18px", color: "var(--text)" }}>Agent Approvals</Link>
-        <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-          <Link href="/docs" style={{ color: "var(--muted)", fontSize: "14px" }}>Docs</Link>
-          <Link href="/signup" style={{ background: "var(--blue)", color: "#fff", padding: "8px 16px", borderRadius: "8px", fontSize: "14px", fontWeight: 600 }}>Get a key</Link>
-        </div>
-      </nav>
+      <Navbar />
 
-      <div style={{ maxWidth: "960px", margin: "0 auto", padding: "64px 32px" }}>
-        <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <h1 style={{ fontSize: "36px", fontWeight: 800, marginBottom: "12px" }}>Simple, transparent pricing</h1>
-          <p style={{ color: "var(--muted)", fontSize: "18px" }}>Start free. Scale as your agents take more consequential actions.</p>
+      <div style={{ maxWidth: "960px", margin: "0 auto", padding: "80px 32px", flex: 1 }}>
+        <div style={{ textAlign: "center", marginBottom: "56px" }}>
+          <div className="eyebrow" style={{ marginBottom: "20px" }}>Pricing</div>
+          <h1
+            className="heading-display"
+            style={{ fontSize: "clamp(28px, 4vw, 42px)", color: "var(--gray-12)", margin: "0 0 12px" }}
+          >
+            Simple, transparent pricing
+          </h1>
+          <p style={{ color: "var(--gray-9)", fontSize: "17px", margin: 0 }}>
+            Start free. Scale as your agents take more consequential actions.
+          </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
           {plans.map((p) => (
             <div
               key={p.name}
+              className={p.highlight ? "card-accent" : "feature-card"}
               style={{
-                background: "var(--surface)", border: p.popular ? "2px solid var(--blue)" : "1px solid var(--border)",
-                borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column",
+                display: "flex",
+                flexDirection: "column",
+                padding: "28px",
+                ...(p.highlight ? { border: "1px solid var(--accent-border)" } : {}),
               }}
             >
-              {p.popular && (
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--blue)", marginBottom: "8px", textTransform: "uppercase" }}>
-                  Most popular
+              {p.highlight && (
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "var(--accent)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginBottom: "12px",
+                  }}
+                >
+                  Free forever
                 </div>
               )}
-              <h3 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 4px" }}>{p.name}</h3>
+              <h3
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "18px",
+                  fontWeight: 700,
+                  color: "var(--gray-12)",
+                  margin: "0 0 4px",
+                }}
+              >
+                {p.name}
+              </h3>
               <div style={{ marginBottom: "16px" }}>
-                <span style={{ fontSize: "32px", fontWeight: 800 }}>${p.price}</span>
-                <span style={{ color: "var(--dim)", fontSize: "14px" }}>/mo</span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "32px",
+                    fontWeight: 800,
+                    color: "var(--gray-12)",
+                  }}
+                >
+                  ${p.price}
+                </span>
+                <span style={{ color: "var(--gray-8)", fontSize: "14px" }}>/mo</span>
               </div>
-              <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "20px", flex: 1 }}>{p.desc}</p>
-              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", fontSize: "14px", color: "var(--muted)" }}>
+              <p style={{ fontSize: "14px", color: "var(--gray-9)", marginBottom: "20px", flex: 1, lineHeight: 1.5 }}>
+                {p.desc}
+              </p>
+              <ul className="feature-bullets" style={{ marginBottom: "24px" }}>
                 {p.features.map((f) => (
-                  <li key={f} style={{ padding: "4px 0", display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ color: "var(--green)" }}>✓</span> {f}
-                  </li>
+                  <li key={f}>{f}</li>
                 ))}
               </ul>
               <Link
                 href="/signup"
-                style={{
-                  display: "block", textAlign: "center", padding: "12px", borderRadius: "8px",
-                  background: p.popular ? "var(--blue)" : "transparent",
-                  border: p.popular ? "none" : "1px solid var(--border)",
-                  color: p.popular ? "#fff" : "var(--text)", fontWeight: 600, fontSize: "14px", textDecoration: "none",
-                }}
+                className={p.highlight ? "btn-primary" : "btn-secondary"}
+                style={{ width: "100%", textAlign: "center", fontSize: "14px" }}
               >
-                {p.price === 0 ? "Get started free" : "Get started"}
+                {p.price === 0 ? "Get started free" : "Coming soon"}
               </Link>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: "64px", textAlign: "center", color: "var(--dim)", fontSize: "14px" }}>
-          <p>All plans include: HMAC-signed webhooks, audit trail, auto-expiry, rate limiting, 99.9% uptime SLA (paid plans).</p>
-          <p style={{ marginTop: "8px" }}>Questions? <Link href="/contact" style={{ color: "var(--blue)" }}>Contact us</Link></p>
+        <div style={{ marginTop: "64px", textAlign: "center" }}>
+          <p style={{ color: "var(--gray-8)", fontSize: "14px" }}>
+            All plans include: HMAC-signed webhooks, audit trail, auto-expiry, rate limiting.
+          </p>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }
@@ -78,28 +113,28 @@ const plans = [
     name: "Free",
     price: 0,
     desc: "For prototyping and small agents.",
-    popular: false,
-    features: ["100 approvals/mo", "Email delivery", "Signed webhooks", "Audit trail", "Community support"],
+    highlight: true,
+    features: ["100 approvals/mo", "Email delivery", "Signed webhooks", "Audit trail", "Dashboard"],
   },
   {
     name: "Startup",
     price: 19,
     desc: "For growing agent workflows.",
-    popular: true,
-    features: ["1,000 approvals/mo", "Email delivery", "Signed webhooks", "Audit trail", "Priority support", "Slack delivery (coming soon)"],
+    highlight: false,
+    features: ["1,000 approvals/mo", "Everything in Free", "Priority support", "Slack delivery", "Custom branding"],
   },
   {
     name: "Business",
     price: 49,
-    desc: "For production agents.",
-    popular: false,
-    features: ["10,000 approvals/mo", "Email delivery", "Signed webhooks", "Audit trail", "Priority support", "Slack delivery (coming soon)", "Multi-approver"],
+    desc: "For production agents at scale.",
+    highlight: false,
+    features: ["10,000 approvals/mo", "Everything in Startup", "Multi-approver", "SSO / SAML", "99.9% uptime SLA"],
   },
   {
     name: "Enterprise",
     price: 199,
     desc: "For regulated industries.",
-    popular: false,
-    features: ["Unlimited approvals", "All channels", "SOC2 compliance", "Dedicated support", "Custom SLAs", "On-prem option"],
+    highlight: false,
+    features: ["Unlimited approvals", "All channels", "SOC2 compliance", "Dedicated support", "Custom SLAs"],
   },
 ];

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /a/
+
+Sitemap: https://nodsend.com/sitemap.xml
