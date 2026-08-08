@@ -1,26 +1,30 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const display = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-display",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const mono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-mono-custom",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Nodsend — Human-in-the-loop for AI agents",
+  title: {
+    default: "Nodsend — Human approval infrastructure for AI agents",
+    template: "%s | Nodsend",
+  },
   description:
-    "Your agent asks. A human decides. You get a webhook. One API call for approval workflows — email delivery, signed webhooks, auto-expiry, and full audit trail.",
+    "Put a secure human checkpoint between agent intent and execution with one approval API, signed outcomes, and a complete decision record.",
   metadataBase: new URL("https://nodsend.com"),
   openGraph: {
-    title: "Nodsend — Human-in-the-loop for AI agents",
+    title: "Nodsend — Human approval infrastructure for AI agents",
     description:
       "Your agent asks. A human decides. You get a webhook. One API call for approval workflows.",
     url: "https://nodsend.com",
@@ -29,7 +33,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nodsend — Human-in-the-loop for AI agents",
+    title: "Nodsend — Human approval infrastructure for AI agents",
     description:
       "Your agent asks. A human decides. You get a webhook. One API call for approval workflows.",
   },
@@ -37,6 +41,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({
@@ -45,10 +50,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-full">
+    <html lang="en" className="dark h-full" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} min-h-full flex flex-col`}
+        className={`${display.variable} ${mono.variable} min-h-full flex flex-col`}
       >
+        <a href="#main-content" className="skip-link">Skip to content</a>
         {children}
       </body>
     </html>

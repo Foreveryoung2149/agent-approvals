@@ -1,291 +1,161 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LoadingState, PageHeader, Panel } from "../../components/DashboardUI";
+import { CopyButton, ErrorState, useAccessibleModal } from "../../components/dashboard/DashboardControls";
+import type { DashboardUser } from "../../components/dashboard/types";
+import { readApiError } from "../../components/dashboard/types";
+import { Icon } from "../../components/Icon";
 import { apiFetch } from "../../lib/api";
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<any>(null);
-  const [name, setName] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState<DashboardUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-
-  // 2FA state
   const [show2faModal, setShow2faModal] = useState(false);
   const [tfSecret, setTfSecret] = useState("");
   const [tfUri, setTfUri] = useState("");
   const [tfCode, setTfCode] = useState("");
   const [tfError, setTfError] = useState("");
   const [tfLoading, setTfLoading] = useState(false);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const closeTwoFactorSetup = () => {
+    if (!tfLoading) setShow2faModal(false);
+  };
+  const { backdropRef: twoFactorBackdropRef, dialogRef: twoFactorDialogRef } = useAccessibleModal<HTMLElement>({
+    open: show2faModal,
+    onClose: closeTwoFactorSetup,
+    initialFocusRef: codeRef,
+    closeOnEscape: !tfLoading,
+  });
 
-  useEffect(() => {
-    fetchUser();
+  const fetchUser = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiFetch("/v1/auth/me", { signal });
+      if (!response.ok) throw new Error(await readApiError(response, "Account settings are unavailable."));
+      const body = (await response.json()) as { user?: DashboardUser };
+      if (!body.user) throw new Error("Account details were not returned.");
+      setUser(body.user);
+    } catch (loadError) {
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+      setError(loadError instanceof Error ? loadError.message : "Account settings could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  async function fetchUser() {
-    const r = await apiFetch("/v1/auth/me");
-    const d = await r.json();
-    if (d.user) {
-      setUser(d.user);
-      setName(d.user.name || "");
-    }
-  }
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchUser(controller.signal);
+    return () => controller.abort();
+  }, [fetchUser]);
 
   async function start2faSetup() {
     setShow2faModal(true);
     setTfError("");
     setTfCode("");
     setTfSecret("");
-    
+    setTfUri("");
     try {
-      const res = await apiFetch("/v1/auth/2fa/generate", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setTfSecret(data.secret);
-        setTfUri(data.uri);
-      } else {
-        setTfError("Failed to generate 2FA secret.");
-      }
-    } catch {
-      setTfError("Network error.");
+      const response = await apiFetch("/v1/auth/2fa/generate", { method: "POST" });
+      if (!response.ok) throw new Error(await readApiError(response, "A setup key could not be generated."));
+      const body = (await response.json()) as { secret?: string; uri?: string };
+      if (!body.secret || !body.uri) throw new Error("The setup key was incomplete.");
+      setTfSecret(body.secret);
+      setTfUri(body.uri);
+      window.setTimeout(() => codeRef.current?.focus(), 0);
+    } catch (setupError) {
+      setTfError(setupError instanceof Error ? setupError.message : "Two-factor setup could not start.");
     }
   }
 
-  async function confirm2fa(e: React.FormEvent) {
-    e.preventDefault();
+  async function confirm2fa(event: React.FormEvent) {
+    event.preventDefault();
     setTfError("");
     setTfLoading(true);
-
     try {
-      const res = await apiFetch("/v1/auth/2fa/enable", {
+      const response = await apiFetch("/v1/auth/2fa/enable", {
         method: "POST",
         body: JSON.stringify({ code: tfCode, secret: tfSecret }),
       });
-
-      if (res.ok) {
-        setShow2faModal(false);
-        setMessage("Two-factor authentication enabled successfully.");
-        fetchUser(); // Refresh user state to show badge
-      } else {
-        const data = await res.json();
-        setTfError(data?.error?.message || "Invalid verification code.");
-      }
-    } catch {
-      setTfError("Network error.");
+      if (!response.ok) throw new Error(await readApiError(response, "The verification code was not accepted."));
+      const body = (await response.json()) as { ok?: boolean };
+      if (!body.ok) throw new Error("Two-factor authentication could not be confirmed.");
+      setShow2faModal(false);
+      setMessage("Two-factor authentication is now enabled.");
+      await fetchUser();
+    } catch (confirmError) {
+      setTfError(confirmError instanceof Error ? confirmError.message : "The verification code was not accepted.");
     } finally {
       setTfLoading(false);
     }
   }
 
-  if (!user) {
-    return <div style={{ textAlign: "center", padding: "48px", color: "var(--gray-8)" }}>Loading...</div>;
-  }
+  if (loading) return <LoadingState label="Loading security settings" />;
+  if (error || !user) return <ErrorState message={error || "Account details are unavailable."} onRetry={() => void fetchUser()} />;
 
   return (
     <div>
-      <h1 style={{ fontFamily: "var(--font-mono)", fontSize: "24px", fontWeight: 700, color: "var(--gray-12)", margin: "0 0 32px" }}>
-        Settings
-      </h1>
+      <PageHeader eyebrow="Workspace controls" title="Settings" description="Manage identity, account security, and plan information." />
+      {message && <div className="alert-success" role="status">{message}</div>}
 
-      <p style={{ color: "var(--gray-9)", fontSize: "14px", marginTop: "-24px", marginBottom: "32px" }}>
-        Manage your account security.
-      </p>
+      <div className="settings-grid">
+        <Panel title="Identity" description="The account currently controlling this workspace.">
+          <dl className="settings-list">
+            <div><dt>Name</dt><dd>{user.name || "Not provided"}</dd></div>
+            <div><dt>Email</dt><dd className="dash-break-value">{user.email}</dd></div>
+            <div><dt>Verification</dt><dd><span className={`badge ${user.email_verified ? "badge-approved" : "badge-pending"}`}>{user.email_verified ? "Verified" : "Pending"}</span></dd></div>
+          </dl>
+        </Panel>
 
-      {message && <div className="alert-success" style={{ marginBottom: "20px" }}>{message}</div>}
-
-      {/* Security Section (matches Trace) */}
-      <section style={{ marginBottom: "48px" }}>
-        <div
-          style={{
-            border: "1px solid var(--gray-3)",
-            borderRadius: "10px",
-            background: "var(--gray-2)",
-          }}
-        >
-          {/* Email Verification Row */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px", borderBottom: "1px solid var(--gray-3)" }}>
-            <div>
-              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--gray-12)", marginBottom: "4px" }}>
-                Email verification
-              </div>
-              <div style={{ fontSize: "13px", color: "var(--gray-8)" }}>
-                {user.email}
-              </div>
-            </div>
-            {user.email_verified ? (
-              <span className="badge badge-approved">Verified</span>
-            ) : (
-              <span className="badge badge-expired">Unverified</span>
-            )}
+        <Panel title="Security" description="Add an independent factor to protect sensitive agent actions.">
+          <div className="settings-action-row">
+            <span className="settings-action-icon"><Icon name="lock" size={19} /></span>
+            <div><strong>Two-factor authentication</strong><p>Require a six-digit authenticator code when signing in.</p></div>
+            {user.twoFactorEnabled ? <span className="badge badge-approved">Enabled</span> : <button type="button" className="btn-secondary" onClick={() => void start2faSetup()}>Enable 2FA</button>}
           </div>
+        </Panel>
 
-          {/* 2FA Row */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px" }}>
-            <div>
-              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--gray-12)", marginBottom: "4px" }}>
-                Two-factor authentication
-              </div>
-              <div style={{ fontSize: "13px", color: "var(--gray-8)" }}>
-                Require a time-based 6-digit code from your authenticator app when logging in.
-              </div>
-            </div>
-            {user.twoFactorEnabled ? (
-              <span className="badge badge-approved">Enabled</span>
-            ) : (
-              <button
-                onClick={start2faSetup}
-                style={{
-                  background: "var(--gray-4)",
-                  border: "1px solid var(--gray-5)",
-                  color: "var(--gray-12)",
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Enable
-              </button>
-            )}
+        <Panel title="Plan" description="Current workspace limits and account tier.">
+          <div className="settings-action-row">
+            <span className="settings-action-icon"><Icon name="bolt" size={19} /></span>
+            <div><strong className="dash-capitalize">{user.plan || "Free"} plan</strong><p>100 approvals per month are included on the free plan.</p></div>
+            <Link href="/pricing" className="dash-text-link">View plans <Icon name="arrow" size={14} /></Link>
           </div>
-        </div>
-      </section>
+        </Panel>
+      </div>
 
-      {/* Plan info */}
-      <section>
-        <h2 style={{ fontFamily: "var(--font-mono)", fontSize: "17px", fontWeight: 700, color: "var(--gray-12)", margin: "0 0 20px" }}>
-          Plan
-        </h2>
-        <div
-          style={{
-            border: "1px solid var(--accent-border)",
-            borderRadius: "10px",
-            padding: "24px",
-            background: "var(--gray-2)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--gray-12)", marginBottom: "4px" }}>
-                Free Plan
-              </div>
-              <div style={{ fontSize: "13px", color: "var(--gray-8)" }}>
-                100 approvals/month included. No credit card required.
-              </div>
-            </div>
-            <span className="badge badge-approved">Active</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 2FA Setup Modal */}
       {show2faModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-          }}
-        >
-          <div
-            style={{
-              background: "var(--gray-2)",
-              border: "1px solid var(--gray-3)",
-              borderRadius: "12px",
-              padding: "32px",
-              width: "100%",
-              maxWidth: "400px",
-            }}
-          >
-            <h2 style={{ fontSize: "20px", fontWeight: 700, color: "var(--gray-12)", margin: "0 0 8px" }}>
-              Enable two-factor authentication
-            </h2>
-            <p style={{ fontSize: "14px", color: "var(--gray-9)", marginBottom: "24px", lineHeight: 1.5 }}>
-              Scan the QR code with your authenticator app, then enter the 6-digit code to confirm.
-            </p>
-
-            {tfError && <div className="alert-error" style={{ marginBottom: "16px" }}>{tfError}</div>}
-
-            {!tfSecret ? (
-              <div style={{ textAlign: "center", padding: "40px", color: "var(--gray-8)" }}>
-                Generating...
-              </div>
-            ) : (
-              <form onSubmit={confirm2fa}>
-                <div
-                  style={{
-                    background: "white",
-                    padding: "16px",
-                    borderRadius: "12px",
-                    display: "flex",
-                    justifyContent: "center",
-                    marginBottom: "16px",
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tfUri)}`}
-                    alt="2FA QR Code"
-                    width={200}
-                    height={200}
-                    style={{ display: "block" }}
-                  />
+        <div ref={twoFactorBackdropRef} className="dash-dialog-backdrop" role="presentation" onMouseDown={closeTwoFactorSetup}>
+          <section ref={twoFactorDialogRef} className="dash-dialog dash-dialog-wide" role="dialog" aria-modal="true" aria-labelledby="two-factor-title" aria-describedby="two-factor-description" tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}>
+            <button type="button" className="dash-dialog-close" onClick={closeTwoFactorSetup} aria-label="Close two-factor setup" disabled={tfLoading}><Icon name="x" /></button>
+            <div className="dash-dialog-icon"><Icon name="lock" size={20} /></div>
+            <h2 id="two-factor-title">Protect your workspace</h2>
+            <p id="two-factor-description">Add Nodsend manually in your authenticator app. Your secret never leaves this browser for third-party QR generation.</p>
+            {tfError && <div className="alert-error" role="alert">{tfError}</div>}
+            {!tfSecret ? <LoadingState label="Generating setup key" /> : (
+              <form onSubmit={confirm2fa} className="two-factor-form">
+                <div className="manual-secret">
+                  <span>Manual setup key</span>
+                  <code>{tfSecret}</code>
+                  <CopyButton value={tfSecret} label="Copy key" />
                 </div>
-                
-                <p style={{ fontSize: "13px", fontFamily: "var(--font-mono)", color: "var(--gray-8)", marginBottom: "24px", textAlign: "center" }}>
-                  {tfSecret}
-                </p>
-
-                <div style={{ marginBottom: "24px" }}>
-                  <label className="label">Verification code</label>
-                  <input
-                    type="text"
-                    value={tfCode}
-                    onChange={(e) => setTfCode(e.target.value)}
-                    required
-                    className="input"
-                    placeholder="123456"
-                    style={{ fontFamily: "var(--font-mono)", fontSize: "16px", letterSpacing: "0.1em" }}
-                    maxLength={6}
-                  />
+                <details className="two-factor-uri"><summary>Advanced: copy authenticator URI</summary><code>{tfUri}</code><CopyButton value={tfUri} label="Copy URI" /></details>
+                <div>
+                  <label className="label" htmlFor="two-factor-code">Verification code</label>
+                  <input ref={codeRef} id="two-factor-code" className="input" value={tfCode} onChange={(event) => setTfCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" required />
                 </div>
-
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <button
-                    type="submit"
-                    disabled={tfLoading || tfCode.length !== 6}
-                    className="btn-primary"
-                    style={{ flex: 1, minHeight: "44px" }}
-                  >
-                    {tfLoading ? "Verifying..." : "Enable"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShow2faModal(false)}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid var(--gray-4)",
-                      color: "var(--gray-11)",
-                      padding: "0 24px",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Cancel
-                  </button>
+                <div className="dash-dialog-actions">
+                  <button type="button" className="btn-secondary" onClick={closeTwoFactorSetup} disabled={tfLoading}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={tfLoading || tfCode.length !== 6}>{tfLoading ? "Verifying…" : "Enable 2FA"}</button>
                 </div>
               </form>
             )}
-          </div>
+          </section>
         </div>
       )}
     </div>

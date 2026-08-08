@@ -2,7 +2,8 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { sessionAuthMiddleware } from "../middleware/session-auth.js";
-import { deliverApprovalWebhook } from "../lib/webhook.js";
+import { sendSignedWebhook } from "../lib/webhook.js";
+import { assertSafeWebhookUrl } from "../lib/url-security.js";
 
 export const webhooksRouter = Router();
 
@@ -32,6 +33,13 @@ webhooksRouter.get("/", async (req, res, next) => {
 webhooksRouter.post("/", async (req, res, next) => {
   try {
     const input = createSchema.parse(req.body || {});
+    try {
+      await assertSafeWebhookUrl(input.url);
+    } catch (error) {
+      return res.status(400).json({
+        error: { code: "invalid_webhook_url", message: error.message },
+      });
+    }
     const secret = `whsec_${crypto.randomBytes(24).toString("hex")}`;
 
     const webhook = await req.prisma.webhook.create({
@@ -43,7 +51,7 @@ webhooksRouter.post("/", async (req, res, next) => {
       active: webhook.active, created_at: webhook.createdAt.toISOString(),
     });
   } catch (error) {
-    if (error.name === "ZodError") return res.status(400).json({ error: { code: "invalid_request", message: error.errors[0]?.message || "Invalid request." } });
+    if (error instanceof z.ZodError) return res.status(400).json({ error: { code: "invalid_request", message: error.issues[0]?.message || "Invalid request." } });
     return next(error);
   }
 });
@@ -52,7 +60,8 @@ webhooksRouter.post("/", async (req, res, next) => {
 webhooksRouter.post("/:id/rotate-secret", async (req, res, next) => {
   try {
     const secret = `whsec_${crypto.randomBytes(24).toString("hex")}`;
-    await req.prisma.webhook.updateMany({ where: { id: req.params.id, userId: req.user.id }, data: { secret } });
+    const updated = await req.prisma.webhook.updateMany({ where: { id: req.params.id, userId: req.user.id }, data: { secret } });
+    if (updated.count !== 1) return res.status(404).json({ error: { code: "not_found", message: "Webhook not found." } });
     return res.json({ secret });
   } catch (error) { return next(error); }
 });
@@ -75,7 +84,11 @@ webhooksRouter.get("/:id/deliveries", async (req, res, next) => {
     return res.json({
       deliveries: deliveries.map((d) => ({
         id: d.id, event_type: d.eventType, status: d.status, status_code: d.statusCode,
-        error: d.error, delivered_at: d.deliveredAt?.toISOString() || null, created_at: d.createdAt.toISOString(),
+        error: d.error, attempts: d.attempts,
+        delivered_at: d.deliveredAt?.toISOString() || null,
+        last_attempt_at: d.lastAttemptAt?.toISOString() || null,
+        next_attempt_at: d.nextAttemptAt?.toISOString() || null,
+        created_at: d.createdAt.toISOString(),
       })),
     });
   } catch (error) { return next(error); }
@@ -93,18 +106,52 @@ webhooksRouter.post("/:id/test", async (req, res, next) => {
       created_at: new Date().toISOString(),
       test: true,
     };
-    const rawBody = JSON.stringify(payload);
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const signature = crypto.createHmac("sha256", webhook.secret).update(`${timestamp}.${rawBody}`).digest("hex");
-
+    const startedAt = new Date();
+    const delivery = await req.prisma.webhookDelivery.create({
+      data: {
+        webhookId: webhook.id,
+        approvalId: null,
+        eventType: "approval.test",
+        payload,
+        status: "processing",
+        attempts: 0,
+        lastAttemptAt: startedAt,
+        nextAttemptAt: new Date(startedAt.getTime() + 30_000),
+      },
+    });
     try {
-      const response = await fetch(webhook.url, {
-        method: "POST", headers: { "Content-Type": "application/json", "Approval-Event": "approval.test", "Approval-Timestamp": timestamp, "Approval-Signature": `t=${timestamp},v1=${signature}` },
-        body: rawBody, signal: AbortSignal.timeout(10000),
+      const statusCode = await sendSignedWebhook({
+        webhook,
+        payload,
+        eventType: "approval.test",
       });
-      return res.json({ status: response.ok ? "delivered" : "failed", status_code: response.status });
+      const completedAt = new Date();
+      await req.prisma.webhookDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: "delivered",
+          statusCode,
+          error: null,
+          attempts: 1,
+          lastAttemptAt: completedAt,
+          deliveredAt: completedAt,
+        },
+      });
+      return res.json({ delivery_id: delivery.id, status: "delivered", status_code: statusCode });
     } catch (err) {
-      return res.json({ status: "failed", error: err.message });
+      const failedAt = new Date();
+      await req.prisma.webhookDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: "failed",
+          statusCode: null,
+          error: String(err?.message || "Test delivery failed").slice(0, 1000),
+          attempts: 1,
+          lastAttemptAt: failedAt,
+          nextAttemptAt: new Date(failedAt.getTime() + 10_000),
+        },
+      });
+      return res.status(502).json({ delivery_id: delivery.id, status: "failed", error: err.message });
     }
   } catch (error) { return next(error); }
 });

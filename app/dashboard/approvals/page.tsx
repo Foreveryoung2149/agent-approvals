@@ -1,132 +1,119 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { EmptyState, LoadingState, PageHeader, Panel } from "../../components/DashboardUI";
+import { ErrorState, StatusBadge } from "../../components/dashboard/DashboardControls";
+import type { ApprovalRecord, ApprovalStatus } from "../../components/dashboard/types";
+import { formatDateTime, readApiError } from "../../components/dashboard/types";
+import { Icon } from "../../components/Icon";
 import { apiFetch } from "../../lib/api";
 
-interface Approval {
-  id: string;
-  agentName: string;
-  action: string;
-  summary: string;
-  status: string;
-  channel: string;
-  recipient: string;
-  expires_at: string;
-  decided_at: string | null;
-  decided_by: string | null;
-  created_at: string;
-}
+const filters: Array<"" | ApprovalStatus> = ["", "pending", "approved", "rejected", "expired", "cancelled"];
 
 export default function ApprovalsPage() {
-  const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"" | ApprovalStatus>("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadApprovals();
+  const loadApprovals = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError("");
+    try {
+      const query = new URLSearchParams({ limit: "100" });
+      if (statusFilter) query.set("status", statusFilter);
+      const response = await apiFetch(`/v1/approvals?${query.toString()}`, { signal });
+      if (!response.ok) throw new Error(await readApiError(response, "Approval requests are unavailable."));
+      const body = (await response.json()) as { approvals?: ApprovalRecord[] };
+      setApprovals(body.approvals || []);
+    } catch (loadError) {
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+      setError(loadError instanceof Error ? loadError.message : "Approval requests could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter]);
 
-  async function loadApprovals() {
-    setLoading(true);
-    try {
-      const query = statusFilter ? `?status=${statusFilter}&limit=100` : "?limit=100";
-      const res = await apiFetch(`/v1/approvals${query}`);
-      if (res.ok) {
-        const data = await res.json();
-        setApprovals(data.approvals || []);
-      }
-    } catch {
-      // silent
-    }
-    setLoading(false);
-  }
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadApprovals(controller.signal);
+    return () => controller.abort();
+  }, [loadApprovals]);
+
+  const visibleApprovals = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return approvals;
+    return approvals.filter((approval) =>
+      [approval.agent_name, approval.action, approval.summary, approval.recipient, approval.channel]
+        .some((value) => value?.toLowerCase().includes(query)),
+    );
+  }, [approvals, search]);
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
-        <h1 style={{ fontFamily: "var(--font-mono)", fontSize: "24px", fontWeight: 700, color: "var(--gray-12)", margin: 0 }}>
-          Approvals
-        </h1>
+      <PageHeader
+        eyebrow="Decision queue"
+        title="Approvals"
+        description="Inspect the latest 100 requests, their recipients, and final outcomes."
+        actions={
+          <label className="dash-search">
+            <Icon name="activity" size={16} />
+            <span className="sr-only">Search approvals</span>
+            <input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search action, agent, recipient…" />
+          </label>
+        }
+      />
 
-        {/* Status filter */}
-        <div style={{ display: "flex", gap: "6px" }}>
-          {["", "pending", "approved", "rejected", "expired"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: "6px",
-                border: statusFilter === s ? "1px solid var(--accent-border)" : "1px solid var(--gray-4)",
-                background: statusFilter === s ? "var(--accent-muted)" : "transparent",
-                color: statusFilter === s ? "var(--accent)" : "var(--gray-9)",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-                textTransform: "capitalize",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              {s || "All"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "48px", color: "var(--gray-8)" }}>Loading...</div>
-      ) : approvals.length === 0 ? (
-        <div
-          style={{
-            border: "1px solid var(--gray-3)",
-            borderRadius: "10px",
-            padding: "64px",
-            textAlign: "center",
-          }}
-        >
-          <p style={{ color: "var(--gray-8)", fontSize: "15px", margin: "0 0 4px" }}>
-            {statusFilter ? `No ${statusFilter} approvals found.` : "No approvals yet."}
-          </p>
-          <p style={{ color: "var(--gray-6)", fontSize: "13px", margin: 0 }}>
-            Use your API key to send your first approval request.
-          </p>
-        </div>
-      ) : (
-        <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Agent</th>
-                <th>Action</th>
-                <th>Summary</th>
-                <th>Status</th>
-                <th>Recipient</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {approvals.map((a) => (
-                <tr key={a.id}>
-                  <td style={{ fontSize: "13px", fontWeight: 500, color: "var(--gray-12)" }}>{a.agentName}</td>
-                  <td>
-                    <code style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--accent-dim)" }}>
-                      {a.action}
-                    </code>
-                  </td>
-                  <td style={{ maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {a.summary}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${a.status}`}>{a.status}</span>
-                  </td>
-                  <td style={{ fontSize: "13px" }}>{a.recipient}</td>
-                  <td style={{ fontSize: "13px" }}>{new Date(a.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Panel
+        title="Request ledger"
+        description={`${visibleApprovals.length} request${visibleApprovals.length === 1 ? "" : "s"} in this view`}
+        action={
+          <div className="filter-tabs" role="group" aria-label="Filter approvals by status">
+            {filters.map((status) => (
+              <button
+                key={status || "all"}
+                type="button"
+                className="filter-tab"
+                data-active={statusFilter === status}
+                aria-pressed={statusFilter === status}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status || "All"}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        {loading ? (
+          <LoadingState label="Loading approval ledger" />
+        ) : error ? (
+          <ErrorState message={error} onRetry={() => void loadApprovals()} />
+        ) : visibleApprovals.length === 0 ? (
+          <EmptyState
+            icon="approval"
+            title={search ? "No matching approvals" : statusFilter ? `No ${statusFilter} approvals` : "No approvals yet"}
+            description={search ? "Try a different agent, action, or recipient." : "Requests created by your agents will appear here with their full decision state."}
+          />
+        ) : (
+          <div className="dash-table-wrap" role="region" aria-label="Approval request ledger" tabIndex={0}>
+            <table className="data-table">
+              <thead><tr><th>Agent / action</th><th>Summary</th><th>Status</th><th>Recipient</th><th>Created</th></tr></thead>
+              <tbody>
+                {visibleApprovals.map((approval) => (
+                  <tr key={approval.id}>
+                    <td data-label="Agent / action"><strong className="dash-primary-value">{approval.agent_name}</strong><code className="dash-code-value">{approval.action}</code></td>
+                    <td data-label="Summary"><span className="dash-summary-cell" title={approval.summary}>{approval.summary}</span></td>
+                    <td data-label="Status"><StatusBadge status={approval.status} /></td>
+                    <td data-label="Recipient"><span className="dash-break-value">{approval.recipient}</span></td>
+                    <td data-label="Created">{formatDateTime(approval.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

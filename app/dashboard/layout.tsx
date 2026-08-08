@@ -2,254 +2,163 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { apiFetch, getSessionToken, clearSessionToken } from "../lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { Brand } from "../components/Brand";
+import { LoadingState } from "../components/DashboardUI";
+import { Icon, type IconName } from "../components/Icon";
+import type { DashboardUser } from "../components/dashboard/types";
+import { apiFetch } from "../lib/api";
 
-const navItems = [
-  { href: "/dashboard", label: "Overview", icon: "◈" },
-  { href: "/dashboard/approvals", label: "Approvals", icon: "◉" },
-  { href: "/dashboard/api-keys", label: "API Keys", icon: "⌘" },
-  { href: "/dashboard/webhooks", label: "Webhooks", icon: "↯" },
-  { href: "/dashboard/settings", label: "Settings", icon: "⚙" },
+const navItems: Array<{ href: string; label: string; icon: IconName }> = [
+  { href: "/dashboard", label: "Command center", icon: "dashboard" },
+  { href: "/dashboard/approvals", label: "Approvals", icon: "approval" },
+  { href: "/dashboard/api-keys", label: "API keys", icon: "key" },
+  { href: "/dashboard/webhooks", label: "Webhooks", icon: "webhook" },
+  { href: "/dashboard/settings", label: "Settings", icon: "settings" },
 ];
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
+function pathLabel(pathname: string) {
+  return navItems.find((item) => item.href === pathname)?.label || "Workspace";
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<DashboardUser | null>(null);
+  const [authState, setAuthState] = useState<"checking" | "ready">("checking");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [compactNavigation, setCompactNavigation] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    if (!getSessionToken()) {
-      router.push("/login");
-      return;
-    }
-    apiFetch("/v1/auth/me")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.user) setUser(d.user);
-        else {
-          clearSessionToken();
-          router.push("/login");
-        }
+    const controller = new AbortController();
+    apiFetch("/v1/auth/me", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Session expired");
+        const data = (await response.json()) as { user?: DashboardUser };
+        if (!data.user) throw new Error("Session expired");
+        setUser(data.user);
+        setAuthState("ready");
       })
-      .catch(() => {
-        clearSessionToken();
-        router.push("/login");
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        router.replace("/login");
       });
+
+    return () => controller.abort();
   }, [router]);
 
-  function logout() {
-    clearSessionToken();
-    router.push("/");
+  useEffect(() => setMobileMenuOpen(false), [pathname]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const syncNavigationMode = () => {
+      setCompactNavigation(mediaQuery.matches);
+      if (!mediaQuery.matches) setMobileMenuOpen(false);
+    };
+    syncNavigationMode();
+    mediaQuery.addEventListener("change", syncNavigationMode);
+    return () => mediaQuery.removeEventListener("change", syncNavigationMode);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
+  const initials = useMemo(() => {
+    const source = user?.name?.trim() || user?.email || "N";
+    return source.slice(0, 2).toUpperCase();
+  }, [user]);
+
+  async function logout() {
+    try {
+      await apiFetch("/v1/auth/logout", { method: "POST" });
+    } finally {
+      router.replace("/");
+      router.refresh();
+    }
   }
 
+  if (authState === "checking") return <LoadingState label="Securing workspace" />;
+
   return (
-    <div style={{ minHeight: "100vh", background: "var(--background)" }}>
-      {/* Mobile header */}
-      <div
-        className="lg:hidden"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "16px 20px",
-          borderBottom: "1px solid var(--gray-3)",
-          background: "rgba(5, 5, 5, 0.95)",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span
-            style={{
-              display: "grid",
-              width: "24px",
-              height: "24px",
-              placeItems: "center",
-              borderRadius: "6px",
-              background: "var(--accent)",
-              color: "#050505",
-              fontSize: "12px",
-              fontWeight: 800,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            N
-          </span>
-          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "15px", color: "var(--gray-12)" }}>
-            Nodsend
-          </span>
-        </Link>
+    <div className="dashboard-shell">
+      <header className="dash-mobile-header">
+        <Brand compact />
         <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          style={{
-            background: "none",
-            border: "none",
-            color: "var(--gray-11)",
-            fontSize: "20px",
-            cursor: "pointer",
-          }}
+          type="button"
+          className="dash-menu-button"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          aria-label={mobileMenuOpen ? "Close workspace navigation" : "Open workspace navigation"}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="workspace-navigation"
         >
-          ☰
+          <Icon name={mobileMenuOpen ? "x" : "menu"} size={20} />
         </button>
-      </div>
+      </header>
 
-      {/* Sidebar (desktop) */}
+      <button
+        type="button"
+        className="dash-mobile-backdrop"
+        data-open={mobileMenuOpen}
+        aria-label="Close workspace navigation"
+        aria-hidden={!mobileMenuOpen}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
       <aside
-        className="hidden lg:flex"
-        style={{
-          position: "fixed",
-          inset: "0 auto 0 0",
-          width: "256px",
-          flexDirection: "column",
-          borderRight: "1px solid var(--gray-3)",
-          background: "rgba(8, 8, 8, 0.95)",
-          padding: "24px 16px",
-          zIndex: 40,
-        }}
+        id="workspace-navigation"
+        className="dash-sidebar"
+        data-open={mobileMenuOpen}
+        aria-label="Workspace navigation"
+        aria-hidden={compactNavigation && !mobileMenuOpen ? true : undefined}
+        inert={compactNavigation && !mobileMenuOpen ? true : undefined}
       >
-        {/* Logo */}
-        <Link
-          href="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginBottom: "36px",
-            paddingLeft: "4px",
-          }}
-        >
-          <span
-            style={{
-              display: "grid",
-              width: "28px",
-              height: "28px",
-              placeItems: "center",
-              borderRadius: "7px",
-              background: "var(--accent)",
-              color: "#050505",
-              fontSize: "14px",
-              fontWeight: 800,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            N
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontWeight: 700,
-              fontSize: "17px",
-              color: "var(--gray-12)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Nodsend
-          </span>
-        </Link>
-
-        {/* Nav */}
-        <nav style={{ display: "grid", gap: "4px", flex: 1 }}>
+        <div className="dash-sidebar-brand"><Brand /></div>
+        <nav className="dash-nav">
+          <span className="dash-nav-section">Control plane</span>
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
+            const active = item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-link ${isActive ? "active" : ""}`}
-              >
-                <span style={{ fontSize: "16px", width: "20px", textAlign: "center" }}>
-                  {item.icon}
-                </span>
+              <Link key={item.href} href={item.href} className="dash-nav-link" data-active={active} aria-current={active ? "page" : undefined}>
+                <span><Icon name={item.icon} size={17} /></span>
                 {item.label}
               </Link>
             );
           })}
-          <Link href="/docs" className="nav-link" style={{ marginTop: "8px" }}>
-            <span style={{ fontSize: "16px", width: "20px", textAlign: "center" }}>📖</span>
-            Docs
+          <span className="dash-nav-section">Build</span>
+          <Link href="/docs" className="dash-nav-link">
+            <span><Icon name="book" size={17} /></span>
+            Documentation
           </Link>
         </nav>
 
-        {/* User */}
-        <div
-          style={{
-            borderTop: "1px solid var(--gray-3)",
-            paddingTop: "16px",
-            marginTop: "auto",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "var(--gray-12)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {user?.name || user?.email || "..."}
-              </div>
-              {user?.name && (
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--gray-8)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {user.email}
-                </div>
-              )}
+        <div className="dash-account">
+          <div className="dash-account-row">
+            <span className="dash-avatar" aria-hidden="true">{initials}</span>
+            <div>
+              <strong>{user?.name || user?.email}</strong>
+              {user?.name && <small>{user.email}</small>}
             </div>
-            <button
-              onClick={logout}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--gray-8)",
-                fontSize: "13px",
-                cursor: "pointer",
-                padding: "4px 8px",
-                borderRadius: "6px",
-                transition: "color 150ms",
-                flexShrink: 0,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--error)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--gray-8)")}
-            >
-              Sign out
-            </button>
           </div>
+          <button type="button" className="dash-signout" onClick={() => void logout()}>Sign out</button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="lg:pl-64" style={{ minHeight: "100vh" }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "32px 28px" }}>
-          {children}
+      <main className="dash-main" id="main-content" tabIndex={-1}>
+        <div className="dash-topbar">
+          <span className="dash-topbar-title">{pathLabel(pathname)}</span>
+          <span className="dash-health">Systems operational</span>
         </div>
+        <div className="dash-content">{children}</div>
       </main>
     </div>
   );

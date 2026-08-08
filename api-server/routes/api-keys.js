@@ -26,9 +26,11 @@ apiKeysRouter.get("/", async (req, res, next) => {
         id: k.id,
         name: k.name,
         key_prefix: maskApiKey(k.keyPrefix),
+        mode: k.mode.toLowerCase(),
         plan: k.plan.toLowerCase(),
         last_used_at: k.lastUsedAt?.toISOString() || null,
         revoked: k.revokedAt !== null,
+        revoked_at: k.revokedAt?.toISOString() || null,
         created_at: k.createdAt.toISOString(),
       })),
     });
@@ -40,6 +42,11 @@ apiKeysRouter.get("/", async (req, res, next) => {
 /** POST /v1/api-keys — Create a new API key. */
 apiKeysRouter.post("/", async (req, res, next) => {
   try {
+    if (!req.user.emailVerified) {
+      return res.status(403).json({
+        error: { code: "email_unverified", message: "Verify your email before creating API keys." },
+      });
+    }
     const input = createKeySchema.parse(req.body || {});
     const key = generateApiKey(input.mode);
 
@@ -47,6 +54,7 @@ apiKeysRouter.post("/", async (req, res, next) => {
       data: {
         userId: req.user.id,
         name: input.name,
+        mode: input.mode.toUpperCase(),
         keyPrefix: key.slice(0, 20),
         keyHash: hashSecret(key),
         plan: req.user.plan,
@@ -58,13 +66,14 @@ apiKeysRouter.post("/", async (req, res, next) => {
       name: apiKey.name,
       key, // Full key shown ONCE — never stored or shown again
       key_prefix: maskApiKey(apiKey.keyPrefix),
+      mode: apiKey.mode.toLowerCase(),
       plan: apiKey.plan.toLowerCase(),
       created_at: apiKey.createdAt.toISOString(),
     });
   } catch (error) {
-    if (error.name === "ZodError") {
+    if (error instanceof z.ZodError) {
       return res.status(400).json({
-        error: { code: "invalid_request", message: error.errors[0]?.message || "Invalid request." },
+        error: { code: "invalid_request", message: error.issues[0]?.message || "Invalid request." },
       });
     }
     return next(error);

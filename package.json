@@ -8,6 +8,10 @@
     "dev:api": "node --watch api-server/server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test:api": "node --test api-server/tests/*.test.js",
+    "test:sdk": "cd sdks/python && python -m pytest",
+    "check": "npm run typecheck && npm run test:api && npm run build",
     "start": "next start",
     "start:api": "node api-server/server.js",
     "railway:web": "next start -p $PORT",
@@ -17,15 +21,16 @@
     "db:studio": "cd api-server && npx prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^6.11.1",
+    "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "next": "16.2.10",
+    "next": "^16.3.0",
     "otplib": "^13.4.1",
+    "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.18.1",
@@ -38,7 +43,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.2.0",
-    "prisma": "^6.11.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

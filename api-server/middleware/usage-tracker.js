@@ -18,7 +18,7 @@ export function usageTracker(req, res, next) {
         await req.prisma.usageLog.create({ data: entry });
       }
     } catch (error) {
-      console.warn("[Agent Approvals] Failed to write usage log:", error.message);
+      console.warn("[Nodsend] Failed to write usage log:", error.message);
     }
   });
 

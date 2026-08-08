@@ -1,236 +1,112 @@
-import Navbar from "../components/Navbar";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { CodeBlock } from "../components/CodeBlock";
 import Footer from "../components/Footer";
+import { Icon } from "../components/Icon";
+import Navbar from "../components/Navbar";
 
-export const metadata = {
-  title: "Docs — Nodsend",
-  description: "API reference for Nodsend — human-in-the-loop approval API for AI agents.",
+export const metadata: Metadata = { title: "Developer documentation", description: "Build secure human approval checkpoints into LangChain, CrewAI, AutoGen, or any agent workflow." };
+
+const createExample = `curl https://api.nodsend.com/v1/approvals \\
+  -X POST \\
+  -H "Authorization: Bearer appr_live_..." \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: deploy-prod-1042" \\
+  -d '{
+    "action": "deploy_production",
+    "summary": "Release version 4.2 to production",
+    "channel": "email",
+    "recipient": "owner@company.com",
+    "expires_in": "1h",
+    "external_id": "release-1042"
+  }'`;
+
+const webhookExample = `Nodsend-Webhook-Id: evt_01J...
+Nodsend-Webhook-Timestamp: 1786197600
+Nodsend-Webhook-Signature: v1=8f7d...
+
+{
+  "event_id": "evt_01J...",
+  "event_type": "approval.approved",
+  "created_at": "2026-08-08T12:00:00Z",
+  "data": {
+    "approval": {
+      "id": "apr_01J...",
+      "status": "approved",
+      "action": "deploy_production"
+    }
+  }
+}`;
+
+const integrationExamples = {
+  langchain: `from nodsend.integrations.langchain import approval_kwargs_from_interrupt
+
+approval = nodsend.approvals.create(
+    **approval_kwargs_from_interrupt(
+        interrupt,
+        recipient="owner@company.com",
+        thread_id=thread_id,
+        webhook_id=webhook_id,
+    )
+)`,
+  crewai: `from nodsend.integrations.crewai import NodsendFeedbackProvider
+
+provider = NodsendFeedbackProvider(
+    nodsend,
+    recipient="finance@company.com",
+    webhook_id=webhook_id,
+)
+
+# Pass provider to CrewAI's @human_feedback gate.`,
+  autogen: `from nodsend.integrations.autogen import function_tool
+
+guarded_deploy = function_tool(
+    deploy_production,
+    client=nodsend,
+    recipient="ops@company.com",
+    summary="Deploy version 4.2 to production",
+    description="Deploy only after human approval",
+)
+assistant = AssistantAgent(tools=[guarded_deploy])`,
 };
+
+const parameters = [
+  ["action", "string", "yes", "Stable machine-readable action name."],
+  ["summary", "string", "yes", "Plain-language decision summary."],
+  ["recipient", "email", "yes", "Person authorized to decide."],
+  ["channel", "email", "yes", "Delivery channel. Email is currently supported."],
+  ["expires_in", "duration", "no", "Decision window such as 30m, 1h, or 1d."],
+  ["external_id", "string", "no", "Your durable workflow identifier."],
+  ["metadata", "object", "no", "Non-sensitive correlation data."],
+  ["webhook_id", "string", "no", "A registered webhook destination."],
+];
+
+const nav = [["Quick start", "quick-start"], ["Create approval", "create"], ["Webhooks", "webhooks"], ["LangChain", "langchain"], ["CrewAI", "crewai"], ["AutoGen", "autogen"], ["Security", "security"]];
 
 export default function DocsPage() {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <main className="marketing-shell">
       <Navbar />
+      <span id="main-content" className="skip-target" tabIndex={-1} />
+      <section className="page-hero page-hero-compact"><div className="container"><span className="signal-label">Developer documentation</span><h1>Build a reliable human checkpoint.</h1><p>Start with one API request, then connect the approval outcome to your framework’s native pause-and-resume lifecycle.</p></div></section>
+      <div className="container docs-shell">
+        <aside className="docs-nav" aria-label="Documentation sections"><span>On this page</span>{nav.map(([label, id]) => <a key={id} href={`#${id}`}>{label}</a>)}<Link href="/signup" className="btn-primary">Get an API key</Link></aside>
+        <article className="docs-content">
+          <section className="doc-section" id="quick-start"><span className="doc-index">01 / Start</span><h2>Quick start</h2><p>Create an approval with your server-side API key. The human receives a single-use decision link; your application receives the result through a signed webhook.</p><div className="doc-callout"><Icon name="key" size={18} /><div><strong>Keep API keys server-side.</strong><span>Never expose an <code>appr_live_</code> key in a browser, model prompt, or public decision URL.</span></div></div><CodeBlock label="cURL">{createExample}</CodeBlock></section>
 
-      <div style={{ maxWidth: "780px", margin: "0 auto", padding: "56px 32px", flex: 1 }}>
-        <h1
-          className="heading-display"
-          style={{ fontSize: "36px", color: "var(--gray-12)", margin: "0 0 8px" }}
-        >
-          API Reference
-        </h1>
-        <p style={{ color: "var(--gray-9)", fontSize: "16px", marginBottom: "48px" }}>
-          Base URL:{" "}
-          <code style={{ background: "var(--gray-3)", padding: "3px 8px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontSize: "14px" }}>
-            https://api.nodsend.com
-          </code>
-          {" — Auth: "}
-          <code style={{ background: "var(--gray-3)", padding: "3px 8px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontSize: "14px" }}>
-            Bearer nod_live_…
-          </code>
-        </p>
+          <section className="doc-section" id="create"><span id="api-reference" aria-hidden="true" /><span className="doc-index">02 / Approvals</span><h2 id="approval-fields-title">Create an approval</h2><p><code>POST /v1/approvals</code> is authenticated with an API key. Use an idempotency key whenever a network retry could otherwise create the same decision twice.</p><div className="docs-table-wrap" role="region" aria-labelledby="approval-fields-title" tabIndex={0}><table className="docs-table"><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>{parameters.map(([field, type, required, description]) => <tr key={field}><td><code>{field}</code></td><td>{type}</td><td>{required}</td><td>{description}</td></tr>)}</tbody></table></div></section>
 
-        {/* Quick Start */}
-        <Section title="Quick start">
-          <p style={{ color: "var(--gray-9)", marginBottom: "16px", lineHeight: 1.7, fontSize: "15px" }}>
-            1. Sign up at <a href="/signup" style={{ color: "var(--accent)", fontWeight: 600 }}>nodsend.com/signup</a> and grab your API key.<br />
-            2. POST to <code style={codeInline}>/v1/approvals</code> with the action, summary, and recipient.<br />
-            3. We email the human. They click approve or reject.<br />
-            4. We fire a signed webhook to your callback URL.
-          </p>
-        </Section>
+          <section className="doc-section" id="webhooks"><span className="doc-index">03 / Outcomes</span><h2>Verify every webhook</h2><p>Compute HMAC-SHA256 over <code>{"<event_id>.<timestamp>.<raw_body>"}</code>, compare it in constant time, and reject timestamps outside your replay window.</p><CodeBlock label="Signed webhook">{webhookExample}</CodeBlock></section>
 
-        {/* Create approval */}
-        <Section title="Create an approval">
-          <p style={{ color: "var(--gray-9)", marginBottom: "16px", lineHeight: 1.7, fontSize: "15px" }}>
-            Your agent calls this when it wants to do something that needs human sign-off.
-          </p>
-          <CodeBlock>{`POST /v1/approvals
-Authorization: Bearer nod_live_...
-Content-Type: application/json
+          <span id="integrations" aria-hidden="true" />
+          {(Object.keys(integrationExamples) as Array<keyof typeof integrationExamples>).map((framework, index) => (
+            <section className="doc-section" id={framework} key={framework}><span className="doc-index">0{index + 4} / Integration</span><h2>{framework === "langchain" ? "LangChain and LangGraph" : framework === "crewai" ? "CrewAI" : "AutoGen"}</h2><p>{framework === "langchain" ? "Bridge Nodsend to durable interrupts and resume the same thread only after the signed decision event arrives." : framework === "crewai" ? "Use Nodsend as an external feedback provider or guard selected consequential tool calls in a crew or flow." : "Keep the sensitive side effect inside an approval-aware function tool so the model cannot bypass the decision boundary."}</p><CodeBlock label="Python">{integrationExamples[framework]}</CodeBlock></section>
+          ))}
 
-{
-  "action": "book_flight",
-  "summary": "Book SFO→JFK for $350 on United, departing Aug 15",
-  "details": { "price": 350, "airline": "United" },
-  "channel": "email",
-  "recipient": "founder@company.com",
-  "expires_in": "1h",
-  "webhook_url": "https://your-agent.com/webhooks"
-}`}</CodeBlock>
-        </Section>
-
-        {/* Response */}
-        <Section title="Response">
-          <CodeBlock>{`{
-  "id": "clk...",
-  "status": "pending",
-  "action": "book_flight",
-  "summary": "Book SFO→JFK for $350...",
-  "channel": "email",
-  "recipient": "founder@company.com",
-  "expires_at": "2026-08-07T20:00:00.000Z",
-  "created_at": "2026-08-07T19:00:00.000Z",
-  "approve_url": "https://nodsend.com/a/clk.../approve?t=...",
-  "reject_url": "https://nodsend.com/a/clk.../reject?t=..."
-}`}</CodeBlock>
-        </Section>
-
-        {/* Parameters */}
-        <Section title="Parameters">
-          <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Field</th>
-                  <th>Type</th>
-                  <th>Required</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {params.map((p) => (
-                  <tr key={p.field}>
-                    <td><code style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--accent-dim)" }}>{p.field}</code></td>
-                    <td style={{ fontSize: "13px" }}>{p.type}</td>
-                    <td style={{ fontSize: "13px" }}>{p.required ? "✓" : "—"}</td>
-                    <td style={{ fontSize: "13px" }}>{p.desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Section>
-
-        {/* Webhook payload */}
-        <Section title="Webhook payload">
-          <p style={{ color: "var(--gray-9)", marginBottom: "16px", lineHeight: 1.7, fontSize: "15px" }}>
-            When the human decides, we POST this to your <code style={codeInline}>webhook_url</code>. Verify the HMAC-SHA256 signature.
-          </p>
-          <CodeBlock>{`Headers:
-  X-Nodsend-Signature: t=<timestamp>,v1=<hex-signature>
-  X-Nodsend-Event: approval.approved
-
-Body:
-{
-  "event_id": "evt_...",
-  "event_type": "approval.approved",
-  "created_at": "2026-08-07T19:05:00.000Z",
-  "approval": {
-    "id": "clk...",
-    "agent_name": "booking-agent",
-    "action": "book_flight",
-    "summary": "Book SFO→JFK for $350...",
-    "status": "approved",
-    "decided_by": "founder@company.com",
-    "decided_at": "2026-08-07T19:05:00.000Z"
-  }
-}`}</CodeBlock>
-        </Section>
-
-        {/* All endpoints */}
-        <Section title="All endpoints">
-          <div style={{ border: "1px solid var(--gray-3)", borderRadius: "10px", overflow: "hidden" }}>
-            <table className="data-table">
-              <tbody>
-                {endpoints.map((e) => (
-                  <tr key={e.method + e.path}>
-                    <td style={{ width: "80px" }}>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          fontFamily: "var(--font-mono)",
-                          padding: "3px 8px",
-                          borderRadius: "4px",
-                          background: methodColor(e.method),
-                          color: "#050505",
-                        }}
-                      >
-                        {e.method}
-                      </span>
-                    </td>
-                    <td>
-                      <code style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--gray-12)" }}>
-                        {e.path}
-                      </code>
-                    </td>
-                    <td style={{ color: "var(--gray-8)", fontSize: "13px" }}>{e.desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Section>
+          <section className="doc-section" id="security"><span className="doc-index">07 / Security</span><h2>Security model</h2><div className="docs-security-grid">{[["lock", "Approval-bound tokens", "Human decision tokens authorize one approval and are stored as hashes."], ["approval", "Atomic state changes", "Only one terminal decision can win, even under concurrent requests."], ["webhook", "Replay-aware events", "Stable event IDs, timestamps, and HMAC signatures protect resumption."], ["shield", "Tenant isolation", "Agent APIs scope every approval and webhook to the owning workspace."]].map(([icon, title, text]) => <div key={title}><Icon name={icon as "lock"} size={19} /><strong>{title}</strong><p>{text}</p></div>)}</div></section>
+        </article>
       </div>
-
       <Footer />
-    </div>
-  );
-}
-
-const codeInline: React.CSSProperties = {
-  background: "var(--gray-3)",
-  padding: "2px 6px",
-  borderRadius: "4px",
-  fontFamily: "var(--font-mono)",
-  fontSize: "13px",
-};
-
-const params = [
-  { field: "action", type: "string", required: true, desc: 'Machine-readable action type, e.g. "book_flight"' },
-  { field: "summary", type: "string", required: true, desc: "Human-readable one-line summary (max 500 chars)" },
-  { field: "details", type: "object", required: false, desc: "Arbitrary metadata (shown to the human)" },
-  { field: "channel", type: "string", required: false, desc: '"email" (default), "slack", or "dashboard"' },
-  { field: "recipient", type: "string", required: true, desc: "Email address of the approver" },
-  { field: "expires_in", type: "string", required: false, desc: '"5m", "1h", "24h" — default "1h"' },
-  { field: "webhook_url", type: "string", required: false, desc: "URL to receive the decision webhook" },
-  { field: "agent_name", type: "string", required: false, desc: "Display name for the agent" },
-];
-
-const endpoints = [
-  { method: "POST", path: "/v1/approvals", desc: "Create an approval request" },
-  { method: "GET", path: "/v1/approvals/:id", desc: "Get approval status" },
-  { method: "GET", path: "/v1/approvals", desc: "List approvals" },
-  { method: "POST", path: "/v1/approvals/:id/approve", desc: "Approve (signed link or API)" },
-  { method: "POST", path: "/v1/approvals/:id/reject", desc: "Reject (signed link or API)" },
-  { method: "POST", path: "/v1/approvals/:id/cancel", desc: "Agent cancels request" },
-  { method: "GET", path: "/v1/approvals/:id/logs", desc: "Audit trail" },
-];
-
-function methodColor(m: string) {
-  return m === "POST" ? "var(--accent)" : m === "GET" ? "var(--success)" : "var(--gray-6)";
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section style={{ marginBottom: "48px" }}>
-      <h2
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "20px",
-          fontWeight: 700,
-          color: "var(--gray-12)",
-          margin: "0 0 16px",
-        }}
-      >
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function CodeBlock({ children }: { children: string }) {
-  return (
-    <div className="code-window" style={{ marginBottom: "24px" }}>
-      <div className="code-window-header">
-        <div className="code-dot" />
-        <div className="code-dot" />
-        <div className="code-dot" />
-      </div>
-      <pre>
-        <code>{children}</code>
-      </pre>
-    </div>
+    </main>
   );
 }

@@ -13,20 +13,23 @@ function getResend() {
 
 const rawFrom = process.env.FROM_EMAIL || "noreply@nodsend.com";
 const FROM_EMAIL = rawFrom.includes("<") ? rawFrom : `Nodsend <${rawFrom}>`;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 /**
  * Sends the approval request email with one-click approve/reject links.
  */
-export async function sendApprovalEmail({ approval }) {
+export async function sendApprovalEmail({ approval, approvalToken }) {
   const resend = await getResend();
   if (!resend) {
     console.warn("[Nodsend] No RESEND_API_KEY configured. Skipping email send.");
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
 
-  const approveUrl = `${APP_URL}/a/${approval.id}/approve?t=${approval.approvalToken}`;
-  const rejectUrl = `${APP_URL}/a/${approval.id}/reject?t=${approval.approvalToken}`;
+  if (!approvalToken) {
+    return { success: false, error: "Decision token was not provided for email delivery" };
+  }
+  const approveUrl = `${APP_URL}/a/${approval.id}/approve?t=${encodeURIComponent(approvalToken)}`;
+  const rejectUrl = `${APP_URL}/a/${approval.id}/reject?t=${encodeURIComponent(approvalToken)}`;
   const expiresAt = new Date(approval.expiresAt).toLocaleString("en-US", {
     dateStyle: "medium",
     timeStyle: "short",

@@ -1,35 +1,42 @@
 import { Router } from "express";
-import { randomInt, createHash } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "../middleware/session-auth.js";
-import { signSession } from "../lib/session.js";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/email.js";
+import {
+  signSession,
+  signTwoFactorChallenge,
+  verifyTwoFactorChallenge,
+} from "../lib/session.js";
+import { decryptSecret, encryptSecret } from "../lib/secret-box.js";
+import {
+  clearSessionCookie,
+  readSessionToken,
+  setSessionCookie,
+} from "../lib/session-cookie.js";
+import { hashAuthCode, verifyAuthCode } from "../lib/auth-code.js";
 import { generateSecret, generateURI, verifySync } from "otplib";
 
 export const authRouter = Router();
 
 const signupSchema = z.object({
-  email: z.string().email().max(255),
-  password: z.string().min(8).max(128),
-  name: z.string().max(200).optional(),
-});
+  email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(12, "Password must contain at least 12 characters.").max(128),
+  name: z.string().trim().max(200).optional(),
+}).strict();
 
 const loginSchema = z.object({
-  email: z.string().email().max(255),
+  email: z.string().trim().toLowerCase().email().max(255),
   password: z.string().min(1).max(128),
-});
+}).strict();
 
-// In-memory store for password reset codes (simple, production would use Redis/DB)
-const resetCodes = new Map(); // key: email, value: { codeHash, expiresAt, attempts }
+const twoFactorLoginSchema = z.object({
+  challengeToken: z.string().min(32).max(2000),
+  code: z.string().regex(/^\d{6}$/),
+}).strict();
+
 const RESET_CODE_TTL = 15 * 60 * 1000; // 15 minutes
 const MAX_RESET_ATTEMPTS = 5;
-
-// In-memory store for verification codes
-const verificationCodes = new Map(); // key: email, value: { codeHash, expiresAt, attempts }
-
-function hashCode(code) {
-  return createHash("sha256").update(code).digest("hex");
-}
+const DUMMY_PASSWORD_HASH = "$2b$10$7/g/.U9K8vr/P1buHh8bmu6PB81PeF9XSkszFSBwNmwTIASDWquC6";
 
 /** POST /v1/auth/signup — Create a new account. */
 authRouter.post("/signup", async (req, res, next) => {
@@ -63,16 +70,7 @@ authRouter.post("/signup", async (req, res, next) => {
 
     // Generate 6-digit verification code
     const code = String(randomInt(100000, 999999));
-    verificationCodes.set(user.email.toLowerCase(), {
-      codeHash: hashCode(code),
-      expiresAt: Date.now() + RESET_CODE_TTL,
-      attempts: 0,
-    });
-
-    // Send email (fire and forget)
-    sendVerificationEmail({ email: user.email, code, name: user.name }).catch((err) => {
-      console.error("[Nodsend] Failed to send verification email:", err);
-    });
+    await createAuthCode(req.prisma, user, "EMAIL_VERIFICATION", code);
 
     // Don't return session token yet, return requirement for verification
     return res.status(201).json({
@@ -84,9 +82,9 @@ authRouter.post("/signup", async (req, res, next) => {
       requireVerification: true
     });
   } catch (error) {
-    if (error.name === "ZodError") {
+    if (error instanceof z.ZodError) {
       return res.status(400).json({
-        error: { code: "invalid_request", message: error.errors[0]?.message || "Invalid request." },
+        error: { code: "invalid_request", message: error.issues[0]?.message || "Invalid request." },
       });
     }
     return next(error);
@@ -105,20 +103,28 @@ authRouter.post("/login", async (req, res, next) => {
     const input = loginSchema.parse(req.body || {});
 
     const user = await req.prisma.user.findUnique({ where: { email: input.email } });
-    if (!user) {
+    const valid = await verifyPassword(input.password, user?.passwordHash || DUMMY_PASSWORD_HASH);
+    if (!user || !valid) {
       return res.status(401).json({
         error: { code: "invalid_credentials", message: "Invalid email or password." },
       });
     }
 
-    const valid = await verifyPassword(input.password, user.passwordHash);
-    if (!valid) {
-      return res.status(401).json({
-        error: { code: "invalid_credentials", message: "Invalid email or password." },
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        error: { code: "email_unverified", message: "Verify your email before signing in." },
+      });
+    }
+
+    if (user.twoFactorEnabled) {
+      return res.json({
+        requireTwoFactor: true,
+        challengeToken: signTwoFactorChallenge(user),
       });
     }
 
     const token = signSession(user);
+    setSessionCookie(res, token);
 
     return res.json({
       user: {
@@ -130,9 +136,9 @@ authRouter.post("/login", async (req, res, next) => {
       token,
     });
   } catch (error) {
-    if (error.name === "ZodError") {
+    if (error instanceof z.ZodError) {
       return res.status(400).json({
-        error: { code: "invalid_request", message: error.errors[0]?.message || "Invalid request." },
+        error: { code: "invalid_request", message: error.issues[0]?.message || "Invalid request." },
       });
     }
     return next(error);
@@ -143,8 +149,7 @@ authRouter.post("/login", async (req, res, next) => {
 authRouter.get("/me", async (req, res, next) => {
   try {
     const { verifySessionToken } = await import("../lib/session.js");
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    const token = readSessionToken(req);
 
     if (!token) {
       return res.status(401).json({
@@ -160,9 +165,9 @@ authRouter.get("/me", async (req, res, next) => {
     }
 
     const user = await req.prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user) {
-      return res.status(404).json({
-        error: { code: "user_not_found", message: "User not found." },
+    if (!user || (session.sessionVersion || 0) !== (user.sessionVersion || 0)) {
+      return res.status(401).json({
+        error: { code: "invalid_session", message: "Session is no longer valid." },
       });
     }
 
@@ -192,57 +197,61 @@ authRouter.post("/verify-email", async (req, res, next) => {
       });
     }
 
-    const stored = verificationCodes.get(email.toLowerCase());
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const stored = await latestAuthCode(req.prisma, normalizedEmail, "EMAIL_VERIFICATION");
     if (!stored) {
       return res.status(400).json({
         error: { code: "invalid_code", message: "No verification code found. Please request a new one." },
       });
     }
 
-    if (Date.now() > stored.expiresAt) {
-      verificationCodes.delete(email.toLowerCase());
+    if (new Date() > stored.expiresAt) {
+      await consumeAuthCode(req.prisma, stored.id);
       return res.status(400).json({
         error: { code: "code_expired", message: "Verification code has expired. Please request a new one." },
       });
     }
 
     if (stored.attempts >= MAX_RESET_ATTEMPTS) {
-      verificationCodes.delete(email.toLowerCase());
+      await consumeAuthCode(req.prisma, stored.id);
       return res.status(429).json({
         error: { code: "too_many_attempts", message: "Too many attempts. Please request a new code." },
       });
     }
 
-    stored.attempts++;
-
-    if (hashCode(code) !== stored.codeHash) {
+    if (!verifyAuthCode(stored, code)) {
+      await recordFailedAuthCodeAttempt(req.prisma, stored.id);
       return res.status(400).json({
         error: { code: "invalid_code", message: "Invalid verification code." },
       });
     }
 
     // Code is valid
-    const user = await req.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await req.prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       return res.status(404).json({ error: { code: "user_not_found", message: "User not found." } });
     }
 
-    await req.prisma.user.update({
-      where: { email: user.email },
-      data: { emailVerified: true },
+    const verifiedUser = await req.prisma.$transaction(async (tx) => {
+      const claimed = await claimAuthCode(tx, stored.id);
+      if (!claimed) return null;
+      const updated = await tx.user.update({
+        where: { email: user.email },
+        data: { emailVerified: true },
+      });
+      return updated;
     });
+    if (!verifiedUser) {
+      return res.status(400).json({
+        error: { code: "invalid_code", message: "Verification code was already used or expired." },
+      });
+    }
 
-    verificationCodes.delete(email.toLowerCase());
-
-    const token = signSession(user);
+    const token = signSession(verifiedUser);
+    setSessionCookie(res, token);
 
     return res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        plan: user.plan.toLowerCase(),
-      },
+      user: publicUser(verifiedUser),
       token,
     });
   } catch (error) {
@@ -263,15 +272,8 @@ authRouter.post("/resend-verification", async (req, res, next) => {
     const user = await req.prisma?.user?.findUnique({ where: { email: email.toLowerCase() } });
     if (user && !user.emailVerified) {
       const code = String(randomInt(100000, 999999));
-      verificationCodes.set(email.toLowerCase(), {
-        codeHash: hashCode(code),
-        expiresAt: Date.now() + RESET_CODE_TTL,
-        attempts: 0,
-      });
+      await createAuthCode(req.prisma, user, "EMAIL_VERIFICATION", code);
 
-      sendVerificationEmail({ email: user.email, code, name: user.name }).catch((err) => {
-        console.error("[Nodsend] Failed to resend verification email:", err);
-      });
     }
 
     return res.json({ ok: true, message: "If an unverified account exists, a new code has been sent." });
@@ -296,16 +298,8 @@ authRouter.post("/forgot-password", async (req, res, next) => {
     if (user) {
       // Generate 6-digit code
       const code = String(randomInt(100000, 999999));
-      resetCodes.set(email.toLowerCase(), {
-        codeHash: hashCode(code),
-        expiresAt: Date.now() + RESET_CODE_TTL,
-        attempts: 0,
-      });
+      await createAuthCode(req.prisma, user, "PASSWORD_RESET", code);
 
-      // Send email (fire and forget)
-      sendPasswordResetEmail({ email: user.email, code, name: user.name }).catch((err) => {
-        console.error("[Nodsend] Failed to send password reset email:", err);
-      });
     }
 
     return res.json({ ok: true, message: "If an account exists with that email, a reset code has been sent." });
@@ -324,36 +318,36 @@ authRouter.post("/reset-password", async (req, res, next) => {
       });
     }
 
-    if (newPassword.length < 8) {
+    if (newPassword.length < 12 || newPassword.length > 128) {
       return res.status(400).json({
-        error: { code: "invalid_request", message: "Password must be at least 8 characters." },
+        error: { code: "invalid_request", message: "Password must be between 12 and 128 characters." },
       });
     }
 
-    const stored = resetCodes.get(email.toLowerCase());
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const stored = await latestAuthCode(req.prisma, normalizedEmail, "PASSWORD_RESET");
     if (!stored) {
       return res.status(400).json({
         error: { code: "invalid_code", message: "No reset code found. Please request a new one." },
       });
     }
 
-    if (Date.now() > stored.expiresAt) {
-      resetCodes.delete(email.toLowerCase());
+    if (new Date() > stored.expiresAt) {
+      await consumeAuthCode(req.prisma, stored.id);
       return res.status(400).json({
         error: { code: "code_expired", message: "Reset code has expired. Please request a new one." },
       });
     }
 
     if (stored.attempts >= MAX_RESET_ATTEMPTS) {
-      resetCodes.delete(email.toLowerCase());
+      await consumeAuthCode(req.prisma, stored.id);
       return res.status(429).json({
         error: { code: "too_many_attempts", message: "Too many attempts. Please request a new code." },
       });
     }
 
-    stored.attempts++;
-
-    if (hashCode(code) !== stored.codeHash) {
+    if (!verifyAuthCode(stored, code)) {
+      await recordFailedAuthCodeAttempt(req.prisma, stored.id);
       return res.status(400).json({
         error: { code: "invalid_code", message: "Invalid reset code." },
       });
@@ -361,14 +355,22 @@ authRouter.post("/reset-password", async (req, res, next) => {
 
     // Code is valid — update password
     const pwHash = await hashPassword(newPassword);
-    await req.prisma.user.update({
-      where: { email: email.toLowerCase() },
-      data: { passwordHash: pwHash },
+    const passwordUpdated = await req.prisma.$transaction(async (tx) => {
+      const claimed = await claimAuthCode(tx, stored.id);
+      if (!claimed) return false;
+      await tx.user.update({
+        where: { email: normalizedEmail },
+        data: { passwordHash: pwHash, sessionVersion: { increment: 1 } },
+      });
+      return true;
     });
+    if (!passwordUpdated) {
+      return res.status(400).json({
+        error: { code: "invalid_code", message: "Reset code was already used or expired." },
+      });
+    }
 
-    // Cleanup
-    resetCodes.delete(email.toLowerCase());
-
+    clearSessionCookie(res);
     return res.json({ ok: true, message: "Password updated successfully. Please sign in." });
   } catch (error) {
     return next(error);
@@ -379,8 +381,7 @@ authRouter.post("/reset-password", async (req, res, next) => {
 authRouter.post("/2fa/generate", async (req, res, next) => {
   try {
     const { verifySessionToken } = await import("../lib/session.js");
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    const token = readSessionToken(req);
 
     if (!token) {
       return res.status(401).json({ error: { code: "unauthorized", message: "Missing session token." } });
@@ -392,12 +393,16 @@ authRouter.post("/2fa/generate", async (req, res, next) => {
     }
 
     const user = await req.prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user) {
+    if (!user || (session.sessionVersion || 0) !== (user.sessionVersion || 0)) {
       return res.status(404).json({ error: { code: "user_not_found", message: "User not found." } });
     }
 
     const secret = generateSecret();
     const uri = generateURI({ secret, label: user.email, issuer: "Nodsend" });
+    await req.prisma.user.update({
+      where: { id: user.id },
+      data: { twoFactorPendingSecret: encryptSecret(secret) },
+    });
 
     return res.json({
       secret,
@@ -412,31 +417,188 @@ authRouter.post("/2fa/generate", async (req, res, next) => {
 authRouter.post("/2fa/enable", async (req, res, next) => {
   try {
     const { verifySessionToken } = await import("../lib/session.js");
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-    const { code, secret } = req.body || {};
+    const token = readSessionToken(req);
+    const { code } = req.body || {};
 
     if (!token) return res.status(401).json({ error: { code: "unauthorized" } });
-    if (!code || !secret) return res.status(400).json({ error: { code: "invalid_request", message: "Code and secret required" } });
+    if (!/^\d{6}$/.test(String(code || ""))) {
+      return res.status(400).json({ error: { code: "invalid_request", message: "A 6-digit code is required." } });
+    }
 
     const session = verifySessionToken(token);
     if (!session) return res.status(401).json({ error: { code: "invalid_session" } });
 
+    const user = await req.prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user || (session.sessionVersion || 0) !== (user.sessionVersion || 0)) {
+      return res.status(401).json({ error: { code: "invalid_session" } });
+    }
+    const secret = decryptSecret(user.twoFactorPendingSecret);
+    if (!secret) {
+      return res.status(400).json({
+        error: { code: "setup_expired", message: "Generate a new two-factor setup before enabling it." },
+      });
+    }
     const result = verifySync({ token: code, secret });
     if (!result || !result.valid) {
       return res.status(400).json({ error: { code: "invalid_code", message: "Invalid verification code." } });
     }
 
-    await req.prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id: session.userId },
       data: {
         twoFactorEnabled: true,
-        twoFactorSecret: secret
+        twoFactorSecret: encryptSecret(secret),
+        twoFactorPendingSecret: null,
+        sessionVersion: { increment: 1 },
       }
     });
 
-    return res.json({ ok: true });
+    const replacementToken = signSession(updatedUser);
+    setSessionCookie(res, replacementToken);
+    return res.json({ ok: true, token: replacementToken });
   } catch (error) {
     return next(error);
   }
+});
+
+function publicUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    plan: user.plan.toLowerCase(),
+  };
+}
+
+async function createAuthCode(prisma, user, type, code) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const outstanding = await tx.authCode.findMany({
+          where: { userId: user.id, type, consumedAt: null },
+          select: { id: true },
+        });
+        const outstandingIds = outstanding.map(({ id }) => id);
+        if (outstandingIds.length > 0) {
+          await tx.authEmailDelivery.updateMany({
+            where: {
+              authCodeId: { in: outstandingIds },
+              status: { in: ["pending", "processing", "failed"] },
+            },
+            data: { status: "discarded", codeCiphertext: null, error: null },
+          });
+          await tx.authCode.updateMany({
+            where: { id: { in: outstandingIds }, consumedAt: null },
+            data: { consumedAt: new Date() },
+          });
+        }
+
+        const authCode = await tx.authCode.create({
+          data: {
+            userId: user.id,
+            email: user.email.toLowerCase(),
+            type,
+            codeHash: hashAuthCode({ code, userId: user.id, type }),
+            expiresAt: new Date(Date.now() + RESET_CODE_TTL),
+          },
+        });
+        await tx.authEmailDelivery.create({
+          data: {
+            authCodeId: authCode.id,
+            recipient: user.email.toLowerCase(),
+            recipientName: user.name || null,
+            codeCiphertext: encryptSecret(code),
+          },
+        });
+        return authCode;
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error?.code === "P2034" && attempt < 2) continue;
+      throw error;
+    }
+  }
+  throw new Error("Could not create an authentication code. Try again.");
+}
+
+function latestAuthCode(prisma, email, type) {
+  return prisma.authCode.findFirst({
+    where: { email, type, consumedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+function consumeAuthCode(prisma, id) {
+  return prisma.authCode.update({ where: { id }, data: { consumedAt: new Date() } });
+}
+
+function recordFailedAuthCodeAttempt(prisma, id) {
+  return prisma.authCode.updateMany({
+    where: { id, consumedAt: null, attempts: { lt: MAX_RESET_ATTEMPTS } },
+    data: { attempts: { increment: 1 } },
+  });
+}
+
+async function claimAuthCode(prisma, id) {
+  const claimed = await prisma.authCode.updateMany({
+    where: {
+      id,
+      consumedAt: null,
+      attempts: { lt: MAX_RESET_ATTEMPTS },
+      expiresAt: { gt: new Date() },
+    },
+    data: { attempts: { increment: 1 }, consumedAt: new Date() },
+  });
+  return claimed.count === 1;
+}
+
+/** POST /v1/auth/login/2fa — complete a two-factor login challenge. */
+authRouter.post("/login/2fa", async (req, res, next) => {
+  try {
+    const input = twoFactorLoginSchema.parse(req.body || {});
+    const challenge = verifyTwoFactorChallenge(input.challengeToken);
+    if (!challenge) {
+      return res.status(401).json({
+        error: { code: "invalid_challenge", message: "Two-factor challenge is invalid or expired." },
+      });
+    }
+
+    const user = await req.prisma?.user?.findUnique({ where: { id: challenge.userId } });
+    if (
+      !user
+      || !user.twoFactorEnabled
+      || (challenge.sessionVersion || 0) !== (user.sessionVersion || 0)
+    ) {
+      return res.status(401).json({
+        error: { code: "invalid_challenge", message: "Two-factor challenge is no longer valid." },
+      });
+    }
+
+    const secret = decryptSecret(user.twoFactorSecret);
+    const result = secret ? verifySync({ token: input.code, secret }) : null;
+    if (!result?.valid) {
+      return res.status(401).json({
+        error: { code: "invalid_two_factor_code", message: "Invalid two-factor code." },
+      });
+    }
+
+    const token = signSession(user);
+    setSessionCookie(res, token);
+    return res.json({
+      user: publicUser(user),
+      token,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: { code: "invalid_request", message: error.issues[0]?.message || "Invalid request." },
+      });
+    }
+    return next(error);
+  }
+});
+
+/** POST /v1/auth/logout - clear the browser session cookie. */
+authRouter.post("/logout", (_req, res) => {
+  clearSessionCookie(res);
+  return res.status(204).end();
 });

@@ -1,0 +1,543 @@
+openapi: 3.1.0
+info:
+  title: Nodsend API
+  version: 1.0.0-draft
+  summary: Human approval gates for consequential AI-agent actions
+  description: |
+    Contract for the hardened Nodsend API. Agent routes use API-key authentication.
+    Human decision routes use an opaque, approval-bound decision token and never
+    accept an agent API key as a substitute.
+  contact:
+    name: Nodsend Support
+    url: https://nodsend.com
+servers:
+  - url: https://api.nodsend.com
+    description: Production
+  - url: http://localhost:3002
+    description: Local development
+tags:
+  - name: Approvals
+  - name: Decisions
+paths:
+  /v1/approvals:
+    post:
+      operationId: createApproval
+      summary: Request human approval
+      description: |
+        Creates one approval request and schedules its configured delivery. The
+        same Idempotency-Key with an identical body returns the original result;
+        reuse with a different body returns an idempotency conflict.
+      tags: [Approvals]
+      security:
+        - AgentApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApprovalRequest'
+      responses:
+        '201':
+          description: Approval created
+          headers:
+            Nodsend-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: listApprovals
+      summary: List approvals
+      tags: [Approvals]
+      security:
+        - AgentApiKey: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ApprovalStatus'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Approval page
+          headers:
+            Nodsend-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/approvals/{approval_id}:
+    parameters:
+      - $ref: '#/components/parameters/ApprovalId'
+    get:
+      operationId: retrieveApproval
+      summary: Retrieve an approval
+      tags: [Approvals]
+      security:
+        - AgentApiKey: []
+      responses:
+        '200':
+          description: Approval
+          headers:
+            Nodsend-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/approvals/{approval_id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ApprovalId'
+    post:
+      operationId: cancelApproval
+      summary: Cancel a pending approval
+      tags: [Approvals]
+      security:
+        - AgentApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Cancelled approval
+          headers:
+            Nodsend-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/approvals/{approval_id}/logs:
+    parameters:
+      - $ref: '#/components/parameters/ApprovalId'
+    get:
+      operationId: listApprovalLogs
+      summary: Retrieve the approval audit trail
+      tags: [Approvals]
+      security:
+        - AgentApiKey: []
+      responses:
+        '200':
+          description: Audit events in chronological order
+          headers:
+            Nodsend-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_id, logs]
+                properties:
+                  approval_id:
+                    type: string
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApprovalLog'
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/decision-requests/{approval_id}:
+    parameters:
+      - $ref: '#/components/parameters/ApprovalId'
+      - $ref: '#/components/parameters/DecisionToken'
+    get:
+      operationId: retrieveDecisionRequest
+      summary: View an approval using an opaque human decision token
+      description: This route is public and must not be protected by agent API-key middleware.
+      tags: [Decisions]
+      security: []
+      responses:
+        '200':
+          description: Human-safe approval details
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+              example: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/Expired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/decision-requests/{approval_id}/decision:
+    parameters:
+      - $ref: '#/components/parameters/ApprovalId'
+      - $ref: '#/components/parameters/DecisionToken'
+    post:
+      operationId: decideApproval
+      summary: Approve or reject an approval
+      description: |
+        Atomically transitions a pending approval. The opaque token must match
+        this approval and cannot authorize any other approval.
+      tags: [Decisions]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionInput'
+      responses:
+        '200':
+          description: Recorded decision
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+              example: no-referrer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Expired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+components:
+  securitySchemes:
+    AgentApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: appr_live_...
+      description: A high-entropy API key created in the Nodsend dashboard.
+  parameters:
+    ApprovalId:
+      name: approval_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    DecisionToken:
+      name: token
+      in: query
+      required: true
+      description: Opaque bearer token delivered to the human reviewer.
+      schema:
+        type: string
+        minLength: 32
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Stable key identifying one logical operation. Retained for at least 24 hours.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+  headers:
+    RequestId:
+      description: Identifier to include in support requests and logs.
+      schema:
+        type: string
+  schemas:
+    ApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected, expired, cancelled]
+    ApprovalChannel:
+      type: string
+      enum: [email]
+      description: Email is the currently supported decision-delivery channel.
+    CreateApprovalRequest:
+      type: object
+      required: [action, summary, recipient]
+      properties:
+        action:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '^[A-Za-z0-9_.:-]+$'
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 500
+        details:
+          type: object
+          default: {}
+          additionalProperties: true
+        channel:
+          $ref: '#/components/schemas/ApprovalChannel'
+        recipient:
+          type: string
+          format: email
+          maxLength: 320
+        expires_in:
+          type: string
+          default: 1h
+          pattern: '^(?:[1-9][0-9]*)(?:s|m|h|d)$'
+          description: Server enforces a minimum of 1 minute and maximum of 30 days.
+        webhook_id:
+          type: [string, 'null']
+          description: Registered tenant webhook; arbitrary per-request URLs are not accepted.
+        agent_name:
+          type: [string, 'null']
+          maxLength: 200
+        external_id:
+          type: [string, 'null']
+          maxLength: 255
+          description: Caller-owned workflow or run correlation ID.
+        metadata:
+          type: object
+          default: {}
+          additionalProperties: true
+          description: Non-sensitive correlation metadata returned in decision webhooks.
+      additionalProperties: false
+    Approval:
+      type: object
+      required: [id, status, action, summary, details, channel, recipient, metadata, expires_at, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ApprovalStatus'
+        action:
+          type: string
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        channel:
+          $ref: '#/components/schemas/ApprovalChannel'
+        recipient:
+          type: string
+        agent_name:
+          type: [string, 'null']
+        external_id:
+          type: [string, 'null']
+        metadata:
+          type: object
+          additionalProperties: true
+        decided_by:
+          type: [string, 'null']
+        rejection_reason:
+          type: [string, 'null']
+        expires_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    ApprovalPage:
+      type: object
+      required: [approvals, next_cursor]
+      properties:
+        approvals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Approval'
+        next_cursor:
+          type: [string, 'null']
+      additionalProperties: false
+    ApprovalLog:
+      type: object
+      required: [id, event, metadata, created_at]
+      properties:
+        id:
+          type: string
+        event:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    DecisionRequest:
+      type: object
+      required: [id, status, action, summary, details, agent_name, expires_at]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ApprovalStatus'
+        action:
+          type: string
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        agent_name:
+          type: [string, 'null']
+        expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    DecisionInput:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected]
+        reason:
+          type: [string, 'null']
+          maxLength: 2000
+      additionalProperties: false
+    WebhookEvent:
+      type: object
+      required: [event_id, event_type, created_at, data]
+      properties:
+        event_id:
+          type: string
+        event_type:
+          type: string
+          enum:
+            - approval.created
+            - approval.approved
+            - approval.rejected
+            - approval.expired
+            - approval.cancelled
+        created_at:
+          type: string
+          format: date-time
+        data:
+          type: object
+          required: [approval]
+          properties:
+            approval:
+              $ref: '#/components/schemas/Approval'
+          additionalProperties: false
+      additionalProperties: false
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            request_id:
+              type: [string, 'null']
+            details:
+              type: object
+              additionalProperties: true
+          additionalProperties: false
+      additionalProperties: false
+  responses:
+    InvalidRequest:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing, invalid, or revoked API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found or not visible to this credential
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Invalid state transition or idempotency-key conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Expired:
+      description: Decision request expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate or plan quota exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 0
+        Nodsend-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
