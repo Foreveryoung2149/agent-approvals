@@ -52,8 +52,8 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`[Nodsend] API server running on http://localhost:${port}`);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`[Nodsend] API server running on port ${port}`);
   console.log(`[Nodsend] Database: ${prisma ? "connected" : "not configured (set DATABASE_URL)"}`);
   console.log(`[Nodsend] Dev key: ${process.env.DEV_API_KEY || "nod_dev_devkey"}`);
 });
