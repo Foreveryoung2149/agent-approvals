@@ -676,3 +676,18 @@ select {
     padding: 72px 0;
   }
 }
+
+/* Fallback for Dashboard Layout (in case Tailwind JIT misses these) */
+.hidden { display: none !important; }
+
+@media (min-width: 1024px) {
+  .lg\:hidden {
+    display: none !important;
+  }
+  .lg\:flex {
+    display: flex !important;
+  }
+  .lg\:pl-64 {
+    padding-left: 256px !important;
+  }
+}
