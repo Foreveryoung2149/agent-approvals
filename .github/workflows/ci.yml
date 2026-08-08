@@ -35,7 +35,7 @@ jobs:
       DATABASE_URL: postgresql://nodsend:nodsend@localhost:5432/nodsend_test?schema=public
       SESSION_SECRET: ci-session-secret-with-more-than-thirty-two-characters
       AUTH_CODE_PEPPER: ci-auth-code-pepper-with-more-than-thirty-two-characters
-      TOTP_ENCRYPTION_KEY: 2222222222222222222222222222222222222222222222222222222222222222
+      TOTP_ENCRYPTION_KEY: "2222222222222222222222222222222222222222222222222222222222222222"
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:
