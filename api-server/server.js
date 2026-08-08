@@ -20,7 +20,11 @@ if (process.env.DATABASE_URL) {
 }
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map(o => o.trim().replace(/\/$/, ""))
+  : "*";
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "1mb" }));
 app.use((req, _res, next) => {
   req.prisma = prisma;
