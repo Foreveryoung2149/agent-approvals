@@ -11,7 +11,8 @@ function getResend() {
   return import("resend").then((m) => new m.Resend(apiKey));
 }
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@nodsend.com";
+const rawFrom = process.env.FROM_EMAIL || "noreply@nodsend.com";
+const FROM_EMAIL = rawFrom.includes("<") ? rawFrom : `Nodsend <${rawFrom}>`;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
 
 /**

@@ -84,6 +84,12 @@ export default function Navbar() {
           <Link href="/pricing" className="nav-link">
             Pricing
           </Link>
+          <Link href="/faq" className="nav-link">
+            FAQ
+          </Link>
+          <Link href="/blog" className="nav-link">
+            Blog
+          </Link>
         </div>
 
         {/* Right actions */}
