@@ -7,6 +7,8 @@ import { authMiddleware } from "./middleware/auth.js";
 import { rateLimiter } from "./middleware/rate-limiter.js";
 import { usageTracker } from "./middleware/usage-tracker.js";
 import { approvalsRouter } from "./routes/approvals.js";
+import { authRouter } from "./routes/auth.js";
+import { apiKeysRouter } from "./routes/api-keys.js";
 
 const app = express();
 const port = process.env.PORT || 3002;
@@ -31,6 +33,12 @@ app.get("/health", (_req, res) => {
 
 // API routes — all require API key auth + rate limiting + usage tracking
 app.use("/v1/approvals", authMiddleware, rateLimiter, usageTracker, approvalsRouter);
+
+// Auth routes (session-based, no API key needed)
+app.use("/v1/auth", authRouter);
+
+// API key management (session-based, no API key needed)
+app.use("/v1/api-keys", apiKeysRouter);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
