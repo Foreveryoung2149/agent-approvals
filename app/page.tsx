@@ -29,8 +29,11 @@ export default function Home() {
       <section id="main-content" className="signal-hero" tabIndex={-1}>
         <div className="container">
           <div className="hero-kicker">Human control for autonomous systems</div>
-          <h1>Agents move fast.<br />Decisions stay <em>accountable.</em></h1>
-          <p>Put a secure human checkpoint between intent and execution. Nodsend gives every AI framework one approval API, signed outcomes, and a complete decision record.</p>
+          <h1 className="hero-title">
+            <span>Agents move fast.</span>
+            <span>Decisions stay <em>accountable.</em></span>
+          </h1>
+          <p className="hero-summary">Put a secure human checkpoint between intent and execution. Nodsend gives every AI framework one approval API, signed outcomes, and a complete decision record.</p>
           <div className="hero-actions">
             <Link href="/signup" className="btn-primary">Create a free workspace <Icon name="arrow" size={16} /></Link>
             <Link href="/docs" className="btn-secondary">Explore the API <Icon name="code" size={16} /></Link>

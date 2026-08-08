@@ -18,7 +18,7 @@ export function AuthShell({ title, description, children, footer }: { title: str
           {footer && <footer className="auth-card-footer">{footer}</footer>}
         </section>
       </div>
-      <p className="auth-legal">By continuing, you agree to use Nodsend for lawful, authorized approval workflows. <Link href="/docs#security">Security model</Link></p>
+      <p className="auth-legal">By continuing, you agree to the <Link href="/terms">Terms</Link> and acknowledge the <Link href="/privacy">Privacy Policy</Link>.</p>
     </main>
   );
 }

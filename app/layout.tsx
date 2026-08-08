@@ -50,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-full" suppressHydrationWarning>
+    <html lang="en" className="dark h-full" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
         className={`${display.variable} ${mono.variable} min-h-full flex flex-col`}
       >
