@@ -12,5 +12,8 @@ COPY . .
 RUN npx prisma generate --schema api-server/prisma/schema.prisma
 RUN npm run build
 
+# Make start script executable
+RUN chmod +x start.sh
+
 EXPOSE 3000
-CMD ["npm", "run", "railway:web"]
+CMD ["./start.sh"]
