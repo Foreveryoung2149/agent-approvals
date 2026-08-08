@@ -397,7 +397,7 @@ authRouter.post("/2fa/generate", async (req, res, next) => {
     }
 
     const secret = generateSecret();
-    const uri = generateURI(user.email, "Nodsend", secret);
+    const uri = generateURI({ secret, label: user.email, issuer: "Nodsend" });
 
     return res.json({
       secret,
@@ -422,8 +422,8 @@ authRouter.post("/2fa/enable", async (req, res, next) => {
     const session = verifySessionToken(token);
     if (!session) return res.status(401).json({ error: { code: "invalid_session" } });
 
-    const isValid = verifySync({ token: code, secret });
-    if (!isValid) {
+    const result = verifySync({ token: code, secret });
+    if (!result || !result.valid) {
       return res.status(400).json({ error: { code: "invalid_code", message: "Invalid verification code." } });
     }
 
