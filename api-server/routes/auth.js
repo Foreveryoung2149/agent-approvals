@@ -4,7 +4,7 @@ import { z } from "zod";
 import { hashPassword, verifyPassword } from "../middleware/session-auth.js";
 import { signSession } from "../lib/session.js";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/email.js";
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verifySync } from "otplib";
 
 export const authRouter = Router();
 
@@ -396,8 +396,8 @@ authRouter.post("/2fa/generate", async (req, res, next) => {
       return res.status(404).json({ error: { code: "user_not_found", message: "User not found." } });
     }
 
-    const secret = authenticator.generateSecret();
-    const uri = authenticator.keyuri(user.email, "Nodsend", secret);
+    const secret = generateSecret();
+    const uri = generateURI(user.email, "Nodsend", secret);
 
     return res.json({
       secret,
@@ -422,7 +422,7 @@ authRouter.post("/2fa/enable", async (req, res, next) => {
     const session = verifySessionToken(token);
     if (!session) return res.status(401).json({ error: { code: "invalid_session" } });
 
-    const isValid = authenticator.verify({ token: code, secret });
+    const isValid = verifySync({ token: code, secret });
     if (!isValid) {
       return res.status(400).json({ error: { code: "invalid_code", message: "Invalid verification code." } });
     }
