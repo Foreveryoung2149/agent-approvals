@@ -20,6 +20,7 @@ const metadata = {
   agent_auth: {
     skill: "https://nodsend.com/auth.md",
     register_uri: "https://nodsend.com/signup",
+    claim_uri: "https://nodsend.com/dashboard/api-keys",
     automated_registration_supported: false,
     registration_methods: [
       {
@@ -27,6 +28,7 @@ const metadata = {
         interactive: true,
         register_uri: "https://nodsend.com/signup",
         provision_uri: "https://nodsend.com/dashboard/api-keys",
+        claim_uri: "https://nodsend.com/dashboard/api-keys",
         credential_types_supported: ["api_key"],
         bearer_methods_supported: ["header"],
         authorization_header: "Authorization: Bearer appr_live_...",
