@@ -10,10 +10,17 @@ const capabilities: Array<{ icon: IconName; label: string; title: string; descri
   { icon: "activity", label: "Operational record", title: "See who decided what, and when.", description: "Trace requests, delivery attempts, decisions, expiry, and cancellation without rebuilding audit infrastructure.", points: ["Lifecycle event history", "Searchable approval queue", "Human-readable evidence"] },
 ];
 
-const integrations = [
-  ["LangChain", "Durable approval interrupts for agent tools and LangGraph threads."],
-  ["CrewAI", "External human feedback for crews, flows, and guarded tool calls."],
-  ["AutoGen", "Approval-aware function tools for consequential agent actions."],
+const integrations: Array<{ name: string; icon: IconName; description: string }> = [
+  { name: "LangChain", icon: "langchain", description: "Durable approval interrupts for agent tools and LangGraph threads." },
+  { name: "CrewAI", icon: "crewai", description: "External human feedback for crews, flows, and guarded tool calls." },
+  { name: "AutoGen", icon: "autogen", description: "Approval-aware function tools for consequential agent actions." },
+];
+
+const securityControls: Array<{ icon: IconName; label: string }> = [
+  { icon: "approvalToken", label: "Approval-bound tokens" },
+  { icon: "atomicDecision", label: "Atomic decisions" },
+  { icon: "replayWebhook", label: "Replay-aware webhooks" },
+  { icon: "tenantKey", label: "Tenant-isolated API keys" },
 ];
 
 const trace = [
@@ -103,9 +110,9 @@ export default function Home() {
             <p>Use Nodsend with native pause-and-resume patterns instead of teaching a model to police itself.</p>
           </header>
           <div className="integration-grid">
-            {integrations.map(([name, description]) => (
+            {integrations.map(({ name, icon, description }) => (
               <article className="integration-card" key={name}>
-                <header><span><Icon name="spark" size={21} /></span><code>Python adapter</code></header>
+                <header><span><Icon name={icon} size={21} /></span><code>Python adapter</code></header>
                 <h3>{name}</h3><p>{description}</p>
                 <Link href={`/docs#${name.toLowerCase()}`}>View integration <Icon name="arrow" size={14} /></Link>
               </article>
@@ -124,8 +131,8 @@ export default function Home() {
               <Link href="/docs#security" className="btn-secondary">Read the security model <Icon name="arrow" size={15} /></Link>
             </div>
             <div className="security-readout" aria-label="Security controls">
-              {["Approval-bound tokens", "Atomic decisions", "Replay-aware webhooks", "Tenant-isolated API keys"].map((item, index) => (
-                <div key={item}><span>0{index + 1}</span><Icon name="lock" size={17} /><strong>{item}</strong><Icon name="check" size={16} /></div>
+              {securityControls.map(({ icon, label }, index) => (
+                <div key={label}><span>0{index + 1}</span><Icon name={icon} size={17} /><strong>{label}</strong><Icon name="check" size={16} /></div>
               ))}
             </div>
           </div>

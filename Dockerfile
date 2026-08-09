@@ -27,6 +27,7 @@ COPY --from=builder --chown=nodsend:nodsend /app/node_modules ./node_modules
 COPY --from=builder --chown=nodsend:nodsend /app/.next ./.next
 COPY --from=builder --chown=nodsend:nodsend /app/public ./public
 COPY --from=builder --chown=nodsend:nodsend /app/api-server ./api-server
+COPY --from=builder --chown=nodsend:nodsend /app/openapi ./openapi
 COPY --from=builder --chown=nodsend:nodsend --chmod=755 /app/start.sh ./start.sh
 
 USER nodsend

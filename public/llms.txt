@@ -34,3 +34,12 @@ approval. Verify Nodsend-Webhook-Signature over
 
 ## Documentation
 https://nodsend.com/docs
+
+## Discovery
+- API catalog: https://nodsend.com/.well-known/api-catalog
+- OpenAPI: https://api.nodsend.com/openapi.yaml
+- Agent authentication and human provisioning: https://nodsend.com/auth.md
+- Public pages support `Accept: text/markdown` content negotiation.
+
+## Content use
+Search and agent input are permitted. General-purpose model training is not permitted.

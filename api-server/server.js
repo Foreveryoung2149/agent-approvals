@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import { authMiddleware } from "./middleware/auth.js";
 import {
   authRateLimiter,
+  contactRateLimiter,
   publicDecisionRateLimiter,
   rateLimiter,
 } from "./middleware/rate-limiter.js";
@@ -22,8 +23,10 @@ import {
 } from "./lib/auth-email-outbox.js";
 import { approvalsRouter } from "./routes/approvals.js";
 import { authRouter } from "./routes/auth.js";
+import { contactRouter } from "./routes/contact.js";
 import { apiKeysRouter } from "./routes/api-keys.js";
 import { decisionRequestsRouter } from "./routes/decision-requests.js";
+import { discoveryRouter } from "./routes/discovery.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 
 validateEnvironment();
@@ -60,6 +63,10 @@ app.use((req, _res, next) => {
 });
 
 // Health check — no auth required
+// Public discovery resources are read-only and expose only the published API
+// contract. They deliberately contain no workspace or credential metadata.
+app.use(discoveryRouter);
+
 app.get("/health", async (_req, res) => {
   if (!prisma) {
     return res.status(503).json({ ok: false, service: "nodsend-api", database: "not_configured" });
@@ -71,6 +78,10 @@ app.get("/health", async (_req, res) => {
     return res.status(503).json({ ok: false, service: "nodsend-api", database: "unavailable" });
   }
 });
+
+// Public contact intake is deliberately narrow, rate limited, and does not
+// require an account or expose mail-provider errors to the browser.
+app.use("/v1/contact", contactRateLimiter, contactRouter);
 
 const databaseRequired = (req, res, next) => {
   if (!req.prisma) {

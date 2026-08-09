@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 const restExample = [
   "curl https://api.nodsend.com/v1/approvals \\",
@@ -17,6 +17,13 @@ const examples = {
   LangChain: `from nodsend.integrations.langchain import approval_kwargs_from_interrupt\n\napproval = nodsend.approvals.create(\n    **approval_kwargs_from_interrupt(\n        interrupt, recipient="owner@company.com",\n        thread_id=thread_id,\n    )\n)`,
   CrewAI: `from nodsend.integrations.crewai import NodsendFeedbackProvider\n\nprovider = NodsendFeedbackProvider(\n    nodsend, recipient="finance@company.com",\n)\n# Pass provider to CrewAI's @human_feedback gate.`,
   AutoGen: `from nodsend.integrations.autogen import function_tool\n\nguarded_deploy = function_tool(\n    deploy, client=nodsend,\n    recipient="ops@company.com",\n    summary="Deploy to production",\n    description="Deploy after human approval",\n)`,
+};
+
+const exampleIcons: Record<keyof typeof examples, IconName> = {
+  REST: "code",
+  LangChain: "langchain",
+  CrewAI: "crewai",
+  AutoGen: "autogen",
 };
 
 export default function TerminalDemo() {
@@ -59,7 +66,7 @@ export default function TerminalDemo() {
               onClick={() => setActive(name)}
               onKeyDown={(event) => selectFromKeyboard(event, name)}
             >
-              <Icon name={name === "REST" ? "code" : "spark"} size={16} />{name}
+              <Icon name={exampleIcons[name]} size={16} />{name}
             </button>
           ))}
         </div>

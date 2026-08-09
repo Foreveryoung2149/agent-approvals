@@ -25,7 +25,7 @@ export default function FAQPage() {
       <section id="main-content" className="page-hero page-hero-compact" tabIndex={-1}>
         <div className="container"><span className="signal-label">Questions, answered</span><h1>Understand the decision boundary.</h1><p>Security, workflow behavior, integrations, and what Nodsend deliberately does not do.</p></div>
       </section>
-      <section className="faq-section"><div className="container faq-layout"><aside><span className="signal-label">Still evaluating?</span><h2>Start with the threat model.</h2><p>The documentation explains how tokens, atomic decisions, and signed events protect workflow resumption.</p><Link href="/docs#security" className="btn-secondary">Security model</Link></aside><div className="faq-list">{questions.map(([question, answer], index) => <details key={question} open={index === 0}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}</div></div></section>
+      <section className="faq-section"><div className="container faq-layout"><aside><span className="signal-label">Ready to map a workflow?</span><h2>Start with one consequential action.</h2><p>Identify the side effect, the person who should approve it, and what your server should do after a signed decision.</p><Link href="/docs#quick-start" className="btn-secondary">Build your first checkpoint</Link></aside><div className="faq-list">{questions.map(([question, answer], index) => <details key={question} open={index === 0}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}</div></div></section>
       <Footer />
     </main>
   );
