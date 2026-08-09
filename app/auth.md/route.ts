@@ -19,6 +19,30 @@ Nodsend does not currently offer OAuth, dynamic client registration, anonymous c
 
 Provisioning requires an interactive human account. Agents must not attempt to automate signup, email verification, dashboard login, or key creation.
 
+## Agent registration profile
+
+The following machine-readable profile describes Nodsend's supported registration path. It is intentionally human-provisioned: \`register_uri\` starts an interactive account flow, and \`provision_uri\` requires an authenticated workspace member. Neither URI is an agent-callable registration API.
+
+\`\`\`yaml
+agent_auth:
+  skill: "https://nodsend.com/auth.md"
+  audience: "AI agents and server-side services operated by a Nodsend workspace"
+  register_uri: "https://nodsend.com/signup"
+  automated_registration_supported: false
+  registration_methods:
+    - type: "human_provisioned_api_key"
+      interactive: true
+      register_uri: "https://nodsend.com/signup"
+      provision_uri: "https://nodsend.com/dashboard/api-keys"
+      credential_types_supported:
+        - "api_key"
+      bearer_methods_supported:
+        - "header"
+      authorization_header: "Authorization: Bearer appr_live_..."
+\`\`\`
+
+Agents may direct a user to \`register_uri\`, then wait for that user to provision and securely supply a credential out of band. Agents must not submit either interactive form themselves.
+
 ## Supported authentication method
 
 - Method: Bearer API key
