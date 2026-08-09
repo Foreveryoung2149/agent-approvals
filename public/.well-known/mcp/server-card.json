@@ -1,0 +1,77 @@
+{
+  "serverInfo": {
+    "name": "Nodsend",
+    "version": "1.0.0",
+    "description": "Human-in-the-loop approval infrastructure for AI agents. One API call to request human approval with signed webhook outcomes."
+  },
+  "transport": {
+    "type": "streamable-http",
+    "endpoint": "https://api.nodsend.com/mcp"
+  },
+  "capabilities": {
+    "tools": [
+      {
+        "name": "create_approval",
+        "description": "Create a human approval request for a consequential agent action. The request is delivered to a human via email. The outcome is returned via signed webhook.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "Machine-readable action identifier (e.g., deploy_production, send_invoice)"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Human-readable summary of the action requiring approval"
+            },
+            "channel": {
+              "type": "string",
+              "enum": ["email"],
+              "description": "Delivery channel for the approval request"
+            },
+            "recipient": {
+              "type": "string",
+              "format": "email",
+              "description": "Email address of the human decision-maker"
+            },
+            "expires_in": {
+              "type": "string",
+              "description": "Duration before the approval expires (e.g., 1h, 30m, 24h)"
+            }
+          },
+          "required": ["action", "summary", "channel", "recipient"]
+        }
+      },
+      {
+        "name": "check_approval",
+        "description": "Check the current status of an approval request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "approval_id": {
+              "type": "string",
+              "description": "The approval request ID"
+            }
+          },
+          "required": ["approval_id"]
+        }
+      },
+      {
+        "name": "cancel_approval",
+        "description": "Cancel a pending approval request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "approval_id": {
+              "type": "string",
+              "description": "The approval request ID to cancel"
+            }
+          },
+          "required": ["approval_id"]
+        }
+      }
+    ],
+    "resources": [],
+    "prompts": []
+  }
+}

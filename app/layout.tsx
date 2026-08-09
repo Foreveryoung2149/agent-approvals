@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import WebMCPTools from "./components/WebMCPTools";
 
 const display = Space_Grotesk({
   subsets: ["latin"],
@@ -55,6 +56,7 @@ export default function RootLayout({
         className={`${display.variable} ${mono.variable} min-h-full flex flex-col`}
       >
         <a href="#main-content" className="skip-link">Skip to content</a>
+        <WebMCPTools />
         {children}
       </body>
     </html>

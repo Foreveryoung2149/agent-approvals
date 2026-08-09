@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "nodsend-approvals",
+      "type": "skill-md",
+      "description": "Create and manage human-in-the-loop approval requests for AI agent workflows via the Nodsend API.",
+      "url": "https://nodsend.com/.well-known/agent-skills/nodsend-approvals/SKILL.md",
+      "digest": "sha256:c6f5f2149146459b6a949618fa94e6f6459ba349f22b00110fe9030273b49034"
+    }
+  ]
+}

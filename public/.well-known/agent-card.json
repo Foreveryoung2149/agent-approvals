@@ -1,0 +1,44 @@
+{
+  "name": "Nodsend",
+  "version": "1.0.0",
+  "description": "Human-in-the-loop approval infrastructure for AI agents. Create approval requests, deliver decisions via email, and receive signed webhook outcomes.",
+  "supportedInterfaces": [
+    {
+      "url": "https://api.nodsend.com/v1",
+      "protocol": "rest",
+      "transportProtocol": "https"
+    }
+  ],
+  "capabilities": {
+    "approvals": true,
+    "webhooks": true,
+    "audit": true
+  },
+  "skills": [
+    {
+      "id": "create-approval",
+      "name": "Create Approval Request",
+      "description": "Create a human approval checkpoint for a consequential agent action. Delivers the request to a human via email and returns the outcome via signed webhook."
+    },
+    {
+      "id": "check-approval",
+      "name": "Check Approval Status",
+      "description": "Query the current status of an approval request (pending, approved, rejected, expired, cancelled)."
+    },
+    {
+      "id": "cancel-approval",
+      "name": "Cancel Approval Request",
+      "description": "Cancel a pending approval request before a decision is made."
+    },
+    {
+      "id": "list-approvals",
+      "name": "List Approvals",
+      "description": "List approval requests for the authenticated workspace with optional status and date filters."
+    }
+  ],
+  "documentationUrl": "https://nodsend.com/docs",
+  "provider": {
+    "organization": "Nodsend",
+    "url": "https://nodsend.com"
+  }
+}
