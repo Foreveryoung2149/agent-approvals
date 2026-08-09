@@ -774,10 +774,11 @@ body::before {
   backdrop-filter: blur(18px);
 }
 .site-nav-inner { min-height: 70px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 24px; }
-.site-nav-links, .site-nav-actions { display: flex; align-items: center; gap: 6px; }
+.site-nav-brand, .site-nav-links, .site-nav-actions { display: flex; align-items: center; gap: 6px; }
+.site-nav-brand { gap: 16px; }
 .site-nav-actions { justify-content: flex-end; }
-.site-nav .nav-link { color: var(--gray-9); padding: 9px 13px; }
-.site-nav .nav-link:hover { color: var(--gray-12); }
+.site-nav .nav-link, .github-link { color: var(--gray-9); padding: 9px 13px; transition: color 200ms ease; display: flex; align-items: center; gap: 6px; }
+.site-nav .nav-link:hover, .github-link:hover { color: var(--gray-12); }
 .site-mobile-trigger { display: none; width: 42px; height: 42px; place-items: center; border: 1px solid var(--gray-4); border-radius: 9px; background: var(--gray-2); color: var(--gray-12); }
 .site-mobile-menu { display: none; }
 

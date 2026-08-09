@@ -37,7 +37,12 @@ export default function Navbar() {
   return (
     <nav className="site-nav" aria-label="Primary navigation">
       <div className="container site-nav-inner">
-        <Brand />
+        <div className="site-nav-brand">
+          <Brand />
+          <a href="https://github.com/Foreveryoung2149/agent-approvals" target="_blank" rel="noopener noreferrer" className="github-link">
+            <Icon name="github" size={16} />
+          </a>
+        </div>
         <div className="site-nav-links">
           {links.map((link) => <Link key={link.href} href={link.href} className="nav-link">{link.label}</Link>)}
         </div>
