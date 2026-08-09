@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
  */
 
 const metadata = {
-  resource: "https://api.nodsend.com",
+  resource: "https://nodsend.com",
   authorization_servers: ["https://nodsend.com"],
   scopes_supported: ["approvals:create", "approvals:read", "approvals:cancel"],
   bearer_methods_supported: ["header"],
