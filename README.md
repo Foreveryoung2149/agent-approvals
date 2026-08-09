@@ -1,118 +1,256 @@
+<div align="center">
+
+<img src="https://nodsend.com/icon.svg" width="64" height="64" alt="Nodsend logo" />
+
 # Nodsend
 
-Nodsend is human approval infrastructure for AI agents. It creates a durable checkpoint between model intent and a consequential side effect, delivers the decision to an authorized person, and resumes the workflow through a signed outcome event.
+**Human approval infrastructure for AI agents.**
 
-The repository contains:
+One API call. A human decides. You get a signed webhook.
 
-- a Next.js marketing site and authenticated operations console;
-- an Express and PostgreSQL approval API;
-- opaque, single-use public decision requests;
-- HMAC-signed webhook delivery with persistent retries;
-- an OpenAPI 3.1 contract;
-- a typed Python SDK with optional LangChain, CrewAI, and AutoGen adapters.
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/Foreveryoung2149/agent-approvals?style=social)](https://github.com/Foreveryoung2149/agent-approvals)
 
-## Security boundary
+[Website](https://nodsend.com) · [Docs](https://nodsend.com/docs) · [OpenAPI Spec](https://api.nodsend.com/openapi.yaml) · [Python SDK](sdks/python)
 
-An agent or its API key can create, read, list, and cancel approval requests. It cannot approve its own request. Human decisions use a separate public route with an opaque token that is hashed at rest and bound to a single approval. Terminal state changes are atomic, and webhook outcomes must be verified before a protected action executes.
+</div>
 
-## Local development
+---
 
-Requirements:
+## The Problem
 
-- Node.js 22+
-- PostgreSQL
-- Python 3.10+ for SDK development
+AI agents are getting autonomous. They book flights, deploy code, send money, email clients. But **who checks before they act?**
 
-Install dependencies:
+Most teams either skip the check (dangerous), build a custom solution (fragile), or use `input()` (doesn't work in production).
+
+## The Solution
+
+Nodsend puts a secure human checkpoint between agent intent and execution.
+
+```
+Agent → POST /v1/approvals → Human gets email → Clicks Approve → Agent gets webhook → Continues
+```
+
+That's the entire product. No SDKs to learn, no dashboards to configure, no infrastructure to manage.
+
+## 30-Second Quickstart
 
 ```bash
-npm ci
-cp .env.example .env
+curl -X POST https://api.nodsend.com/v1/approvals \
+  -H "Authorization: Bearer appr_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "deploy_production",
+    "summary": "Release v4.2 to production",
+    "channel": "email",
+    "recipient": "ceo@company.com",
+    "expires_in": "1h"
+  }'
 ```
 
-Set `DATABASE_URL`, then generate the Prisma client and apply migrations:
+The human gets a clean email with **Approve** and **Reject** buttons. They click. You get a signed webhook. Done.
+
+## Framework Integrations
+
+### LangChain / LangGraph
+
+```python
+from nodsend.integrations.langchain import NodsendApprovalTool
+
+tool = NodsendApprovalTool(api_key="appr_live_...")
+
+# Inside your agent
+result = tool.invoke({
+    "action": "send_invoice",
+    "summary": "Send $5,000 invoice to Acme Corp",
+    "recipient": "finance@company.com"
+})
+```
+
+### CrewAI
+
+```python
+from nodsend.integrations.crewai import NodsendFeedbackProvider
+
+provider = NodsendFeedbackProvider(api_key="appr_live_...")
+
+# Attach to your crew
+crew = Crew(
+    agents=[...],
+    tasks=[...],
+    human_input=True,
+    feedback_provider=provider
+)
+```
+
+### AutoGen
+
+```python
+from nodsend.integrations.autogen import NodsendApprovalTool
+
+tool = NodsendApprovalTool(api_key="appr_live_...")
+
+# Register with your AutoGen agent
+agent.register_tool(tool)
+```
+
+### Any Framework (REST)
+
+```python
+import requests
+
+resp = requests.post(
+    "https://api.nodsend.com/v1/approvals",
+    headers={"Authorization": "Bearer appr_live_..."},
+    json={
+        "action": "book_flight",
+        "summary": "Book SFO→JFK for $350, Aug 15",
+        "channel": "email",
+        "recipient": "ceo@company.com",
+        "expires_in": "1h",
+    },
+)
+```
+
+## How It Works
+
+```
+┌──────────────┐     POST /v1/approvals     ┌──────────────┐
+│              │ ──────────────────────────▸ │              │
+│  Your Agent  │                            │   Nodsend    │
+│              │ ◂────────────────────────── │              │
+└──────────────┘     Signed Webhook          └──────┬───────┘
+                                                    │
+                                              Email │ Approve / Reject
+                                                    │
+                                             ┌──────▾───────┐
+                                             │    Human     │
+                                             │  Decision    │
+                                             └──────────────┘
+```
+
+1. **Agent calls the API** — sends the action, summary, and recipient
+2. **Human gets an email** — clean, one-click Approve/Reject buttons
+3. **Agent gets a webhook** — HMAC-SHA256 signed, tamper-proof
+
+## Features
+
+- 🔐 **Approval-bound tokens** — single-use, hashed at rest
+- ⚡ **One API call** — no SDK required, works with any language
+- 🔏 **Signed webhooks** — HMAC-SHA256 with replay protection
+- 📋 **Full audit trail** — every event logged, queryable via API
+- ⏰ **Auto-expiry** — approvals expire if no one responds
+- 🔒 **Security boundary** — agents can't approve their own requests
+- 🐍 **Python SDK** — with LangChain, CrewAI, and AutoGen adapters
+- 🌐 **Self-hostable** — MIT licensed, run it on your own infrastructure
+
+## Self-Host in One Command
 
 ```bash
-npm run db:generate
-npm run db:migrate
+git clone https://github.com/Foreveryoung2149/agent-approvals.git
+cd agent-approvals
+docker compose up
 ```
 
-Run the web app and API together:
+That's it. PostgreSQL, the API server, and the web dashboard all start together.
 
-```bash
-npm run dev:all
-```
+- **Web dashboard:** http://localhost:3000
+- **API server:** http://localhost:3002
+- **Health check:** http://localhost:3002/health
 
-- Web: `http://localhost:3000`
-- API: `http://localhost:3002`
-- Health: `http://localhost:3002/health`
+> **Production:** Generate real secrets for `SESSION_SECRET`, `AUTH_CODE_PEPPER`, and `TOTP_ENCRYPTION_KEY`. See [.env.example](.env.example) for all configuration options.
 
-## Required production configuration
+## Deploy to Cloud
 
-Production startup fails closed when required secrets are absent. Generate unique, high-entropy values for:
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/nodsend)
 
-- `DATABASE_URL`
-- `SESSION_SECRET`
-- `AUTH_CODE_PEPPER`
-- `TOTP_ENCRYPTION_KEY`
-- `RESEND_API_KEY`
-- `FROM_EMAIL`
-- `APP_URL`
-- `CORS_ORIGIN`
-
-Do not configure `DEV_API_KEY` in production. Run committed Prisma migrations with `prisma migrate deploy`; never use `db push --accept-data-loss` in a production start command.
-
-### Deployment notes
-
-- Run PostgreSQL with automated backups and deploy migrations before accepting traffic.
-- Approval email and webhook outcomes use durable database outboxes; API workers can recover leased deliveries after a process restart.
-- The built-in request and authentication rate limits are process-local. Run one API replica or enforce a shared limit at the gateway until a distributed limiter is configured.
-- Send application logs and `/health` results to your monitoring platform, and alert on repeated `delivery_failed` audit events.
-
-## API shape
-
-Agent routes use `Authorization: Bearer appr_live_...`:
-
-```text
-POST /v1/approvals
-GET  /v1/approvals
-GET  /v1/approvals/:id
-POST /v1/approvals/:id/cancel
-GET  /v1/approvals/:id/logs
-```
-
-Human decision links use the token-scoped public API:
-
-```text
-GET  /v1/decision-requests/:id?token=...
-POST /v1/decision-requests/:id/decision?token=...
-```
-
-The canonical contract is [openapi/nodsend.openapi.yaml](openapi/nodsend.openapi.yaml).
+Or deploy anywhere that runs Docker — Render, Fly.io, AWS ECS, Google Cloud Run, your own VPS.
 
 ## Python SDK
 
-The package source lives in [`sdks/python`](sdks/python). For repository development:
+Install from source (PyPI coming soon):
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -e "sdks/python[dev]"
-pytest sdks/python/tests
+pip install -e "sdks/python"
+
+# With framework integrations
+pip install -e "sdks/python[langchain]"
+pip install -e "sdks/python[crewai]"
+pip install -e "sdks/python[autogen]"
 ```
 
-Framework dependencies are optional extras. See [`sdks/README.md`](sdks/README.md) for LangChain, CrewAI, and AutoGen integration guidance. The protected side effect should stay behind the adapter; a model-callable “request approval” helper is not sufficient as the security boundary.
+```python
+from nodsend import NodsendClient
 
-## Verification
+client = NodsendClient(api_key="appr_live_...")
+
+# Create an approval
+approval = client.approvals.create(
+    action="deploy_production",
+    summary="Release v4.2 to production",
+    channel="email",
+    recipient="ceo@company.com",
+    expires_in="1h",
+)
+
+# Check status
+status = client.approvals.get(approval.id)
+```
+
+See the [SDK documentation](sdks/python/README.md) for the full API.
+
+## API Reference
+
+| Endpoint | Description |
+|---|---|
+| `POST /v1/approvals` | Create an approval request |
+| `GET /v1/approvals` | List approvals |
+| `GET /v1/approvals/:id` | Get approval details |
+| `POST /v1/approvals/:id/cancel` | Cancel a pending approval |
+| `GET /v1/approvals/:id/logs` | Get audit log |
+
+Full specification: [OpenAPI 3.1](openapi/nodsend.openapi.yaml)
+
+## Architecture
+
+| Component | Tech | Description |
+|---|---|---|
+| **Web App** | Next.js 16 | Marketing site + dashboard |
+| **API Server** | Express 5 | Approval lifecycle, webhooks, auth |
+| **Database** | PostgreSQL | Approvals, users, API keys, audit log |
+| **Email** | Resend | Approval request delivery |
+| **Python SDK** | Python 3.10+ | Client library with framework adapters |
+
+## Local Development
 
 ```bash
-npm run typecheck
-npm run test:api
-npm run build
-npm audit --omit=dev
-npm run test:sdk
+# Prerequisites: Node.js 22+, PostgreSQL
+
+npm ci
+cp .env.example .env
+
+# Configure DATABASE_URL in .env, then:
+npm run db:generate
+npm run db:migrate
+
+# Start web + API together
+npm run dev:all
 ```
 
-## Current product scope
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
 
-Email is the supported decision-delivery channel. Additional channels, paid billing, enterprise identity, and compliance certifications must not be advertised as available until their complete security and operational lifecycle is implemented.
+## Contributing
+
+We welcome contributions! Whether it's bug reports, feature requests, documentation improvements, or code — check out our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+## License
+
+[MIT](LICENSE) — use it however you want.
+
+## Links
+
+- 🌐 [nodsend.com](https://nodsend.com)
+- 📖 [Documentation](https://nodsend.com/docs)
+- 📋 [OpenAPI Spec](https://api.nodsend.com/openapi.yaml)
+- 🐍 [Python SDK](sdks/python)
+- 💬 [Report an Issue](https://github.com/Foreveryoung2149/agent-approvals/issues)

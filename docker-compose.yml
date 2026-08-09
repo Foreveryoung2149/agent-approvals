@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nodsend
+      POSTGRES_PASSWORD: nodsend
+      POSTGRES_DB: nodsend
+    ports:
+      - "5432:5432"
+    volumes:
+      - nodsend_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nodsend"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+    environment:
+      SERVICE_ROLE: api
+      PORT: "3002"
+      DATABASE_URL: postgresql://nodsend:nodsend@db:5432/nodsend
+      SESSION_SECRET: change-me-generate-a-random-secret
+      AUTH_CODE_PEPPER: change-me-generate-a-random-pepper
+      TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      APP_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+      FROM_EMAIL: noreply@localhost
+      TRUST_PROXY_HOPS: "0"
+    command: >
+      sh -c "npx prisma migrate deploy --schema api-server/prisma/schema.prisma &&
+             node api-server/server.js"
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      SERVICE_ROLE: web
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:3002
+    command: ["node_modules/.bin/next", "start", "-p", "3000"]
+
+volumes:
+  nodsend_pgdata:

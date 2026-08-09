@@ -1,7 +1,13 @@
 {
-  "name": "agent-approvals",
+  "name": "nodsend",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Foreveryoung2149/agent-approvals.git"
+  },
+  "homepage": "https://nodsend.com",
   "type": "module",
   "scripts": {
     "postinstall": "npm run prisma:generate",
