@@ -42,13 +42,13 @@ export default function Home() {
           </h1>
           <p className="hero-summary">Put a secure human checkpoint between intent and execution. Nodsend gives every AI framework one approval API, signed outcomes, and a complete decision record.</p>
           <div className="hero-actions">
-            <Link href="/signup" className="btn-primary">Get started free <Icon name="arrow" size={16} /></Link>
-            <Link href="https://github.com/Foreveryoung2149/agent-approvals" className="btn-secondary" target="_blank" rel="noopener noreferrer">Star on GitHub <Icon name="code" size={16} /></Link>
+            <Link href="/signup" className="btn-primary">Create a free workspace <Icon name="arrow" size={16} /></Link>
+            <Link href="/docs" className="btn-secondary">Explore the API <Icon name="code" size={16} /></Link>
           </div>
           <div className="hero-proof" aria-label="Product assurances">
-            <span><Icon name="check" size={15} /> Free &amp; open source</span>
-            <span><Icon name="shield" size={15} /> MIT licensed</span>
-            <span><Icon name="pulse" size={15} /> Self-hostable</span>
+            <span><Icon name="check" size={15} /> No credit card</span>
+            <span><Icon name="shield" size={15} /> Signed decisions</span>
+            <span><Icon name="pulse" size={15} /> Framework independent</span>
           </div>
         </div>
       </section>
@@ -141,10 +141,10 @@ export default function Home() {
 
       <section className="final-cta">
         <div className="container">
-          <span className="signal-label">Free. Open source. MIT licensed.</span>
+          <span className="signal-label">Ship accountable autonomy</span>
           <h2>Your agent can act fast.<br />It can still ask first.</h2>
-          <p>1,000 approval requests every month on the hosted version. Self-host for unlimited.</p>
-          <div className="hero-actions"><Link href="/signup" className="btn-primary">Get started free <Icon name="arrow" size={16} /></Link><Link href="https://github.com/Foreveryoung2149/agent-approvals" className="btn-secondary" target="_blank" rel="noopener noreferrer">View on GitHub</Link></div>
+          <p>Start with 100 approval requests each month. No credit card required.</p>
+          <div className="hero-actions"><Link href="/signup" className="btn-primary">Start building <Icon name="arrow" size={16} /></Link><Link href="/docs" className="btn-secondary">Read the docs</Link></div>
         </div>
       </section>
       <Footer />

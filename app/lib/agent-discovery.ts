@@ -153,35 +153,40 @@ The Python SDK includes adapters for LangChain/LangGraph interrupts, CrewAI feed
   },
   "/pricing": {
     title: "Nodsend pricing",
-    description: "Nodsend is free and open source. 1,000 approval requests per month on the hosted version, or self-host for unlimited.",
+    description: "Start adding accountable human decisions to agent workflows for free.",
     body: `# Pricing
 
-Nodsend is free and open source, licensed under MIT.
+## Build — $0 forever
 
-## Free — $0 forever
+For prototypes and production pilots.
 
-Everything you need. No credit card.
-
-- 1,000 approval requests per month
+- 100 approval requests per month
 - Email decision delivery
 - Signed webhook outcomes
 - Decision audit history
 - LangChain, CrewAI, and AutoGen adapters
-- Python SDK
-- Full OpenAPI spec
-- 2FA account security
 
-## Self-Host — $0, MIT licensed
+## Operate — $19 per month (early access)
 
-Run Nodsend on your own infrastructure for unlimited approvals.
+For growing customer-facing workflows.
 
-- Unlimited approval requests
-- Everything in Free
-- Docker Compose one-command setup
-- Full source code access
-- Deploy anywhere
+- 1,000 approval requests per month
+- Everything in Build
+- Longer event retention
+- Priority support
+- Usage export
 
-[Create a workspace](${SITE_ORIGIN}/signup) or [view on GitHub](https://github.com/Foreveryoung2149/agent-approvals).`,
+## Scale — custom annual agreement
+
+For higher-volume and regulated teams.
+
+- Custom approval volume
+- Everything in Operate
+- Data-retention controls
+- Architecture review
+- Custom support agreement
+
+[Create a workspace](${SITE_ORIGIN}/signup) or [contact Nodsend](${SITE_ORIGIN}/contact).`,
   },
   "/faq": {
     title: "Nodsend FAQ",
