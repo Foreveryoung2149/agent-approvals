@@ -1,16 +1,18 @@
 import { CONTENT_SIGNAL } from "../lib/agent-discovery";
 
-const authDocument = `# Nodsend auth.md
+const authDocument = `# auth.md
 
 Nodsend is a human-approval API for server-side AI-agent workflows.
 
 ## Agent audience
 
-This authentication method is for agents and services operated by an existing Nodsend workspace. It is not an unattended agent-registration protocol.
+This service authenticates agents and services operated by an existing Nodsend workspace. Credential provisioning is interactive and human-initiated.
 
 ## Registration and provisioning
 
-Nodsend does not currently offer OAuth, dynamic client registration, anonymous credentials, or automated agent self-registration.
+Nodsend uses human-provisioned API keys. There is no OAuth token exchange, dynamic client registration, or automated agent self-registration.
+
+### How to register
 
 1. A human workspace owner creates an account at https://nodsend.com/signup and verifies the account email.
 2. An authenticated workspace member provisions an API key at https://nodsend.com/dashboard/api-keys.
@@ -21,7 +23,7 @@ Provisioning requires an interactive human account. Agents must not attempt to a
 
 ## Agent registration profile
 
-The following machine-readable profile describes Nodsend's supported registration path. It is intentionally human-provisioned: \`register_uri\` starts an interactive account flow, and \`provision_uri\` requires an authenticated workspace member. Neither URI is an agent-callable registration API.
+The following machine-readable profile describes Nodsend's supported registration path:
 
 \`\`\`yaml
 agent_auth:
@@ -39,17 +41,25 @@ agent_auth:
       bearer_methods_supported:
         - "header"
       authorization_header: "Authorization: Bearer appr_live_..."
+  identity_types_supported:
+    - "anonymous"
+  anonymous:
+    credential_types_supported:
+      - "api_key"
+    claim_uri: "https://nodsend.com/dashboard/api-keys"
 \`\`\`
 
-Agents may direct a user to \`register_uri\`, then wait for that user to provision and securely supply a credential out of band. Agents must not submit either interactive form themselves.
+\`register_uri\` starts an interactive account flow and \`provision_uri\` requires an authenticated workspace member. Neither URI is an agent-callable registration API.
 
 ## Supported authentication method
 
-- Method: Bearer API key
-- Header: \`Authorization: Bearer appr_live_...\`
-- API base URL: \`https://api.nodsend.com\`
-- OpenAPI description: https://api.nodsend.com/openapi.yaml
-- Human documentation: https://nodsend.com/docs
+- **Method**: Bearer API key
+- **Header**: \`Authorization: Bearer appr_live_...\`
+- **API base URL**: \`https://api.nodsend.com\`
+- **OpenAPI description**: https://api.nodsend.com/openapi.yaml
+- **Human documentation**: https://nodsend.com/docs
+- **Protected Resource Metadata**: https://nodsend.com/.well-known/oauth-protected-resource
+- **Authorization Server Metadata**: https://nodsend.com/.well-known/oauth-authorization-server
 
 API keys belong only in a trusted server process or secrets manager. Never place one in a browser, model prompt, public URL, approval context, support request, or client-side bundle.
 

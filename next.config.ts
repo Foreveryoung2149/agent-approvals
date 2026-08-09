@@ -6,6 +6,7 @@ const DISCOVERY_LINK = [
   '<https://api.nodsend.com/openapi.yaml>; rel="service-desc"; type="application/yaml"',
   '</docs>; rel="service-doc"; type="text/html"',
   '</auth.md>; rel="describedby"; type="text/markdown"',
+  '</.well-known/oauth-protected-resource>; rel="oauth-protected-resource"; type="application/json"',
 ].join(", ");
 
 const negotiatedHeaders = [
