@@ -11,6 +11,5 @@ __pycache__
 *.py[cod]
 .pytest_cache
 sdks
-openapi
 api-server/tests
 README.md

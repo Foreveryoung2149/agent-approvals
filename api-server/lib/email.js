@@ -221,6 +221,66 @@ export async function sendVerificationEmail({ email, code, name }) {
   }
 }
 
+const CONTACT_CATEGORIES = {
+  product: "Product and early access",
+  enterprise: "Enterprise and security",
+  support: "Product support",
+  partnership: "Partnership",
+  other: "Other",
+};
+
+export async function sendContactEmail({ name, email, category, subject, message, requestId }) {
+  const resend = await getResend();
+  if (!resend) {
+    console.warn("[Nodsend] No RESEND_API_KEY configured. Contact message was not delivered.");
+    return { success: false, error: "Email delivery is not configured" };
+  }
+
+  const recipient = process.env.CONTACT_EMAIL || "hello@nodsend.com";
+  const categoryLabel = CONTACT_CATEGORIES[category] || CONTACT_CATEGORIES.other;
+  const safeSubject = String(subject).replace(/[\r\n]+/g, " ").slice(0, 160);
+  const reference = requestId ? `<p style="margin:20px 0 0;color:#6a6a6a;font-size:11px;">Reference: ${escapeHtml(requestId)}</p>` : "";
+  const html = `
+  <div style="margin:0;background:#050505;font-family:Arial,Helvetica,sans-serif;color:#e8e8e8;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0a0a0a;border:1px solid #232323;border-radius:12px;">
+          <tr><td style="padding:32px;">
+            <p style="margin:0 0 8px;color:#c8e64a;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(categoryLabel)}</p>
+            <h1 style="margin:0 0 24px;color:#f0f0f0;font-size:22px;line-height:1.3;">${escapeHtml(safeSubject)}</h1>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;background:#111111;border:1px solid #232323;border-radius:8px;">
+              <tr><td style="padding:16px;color:#858585;font-size:13px;line-height:1.6;">
+                <strong style="color:#e8e8e8;">From:</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;
+              </td></tr>
+            </table>
+            <div style="color:#c8c8c8;font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word;">${escapeHtml(message)}</div>
+            ${reference}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </div>`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: recipient,
+      replyTo: email,
+      subject: `[Nodsend contact] ${safeSubject}`,
+      html,
+      text: `${categoryLabel}\n\n${safeSubject}\n\nFrom: ${name} <${email}>\n\n${message}${requestId ? `\n\nReference: ${requestId}` : ""}`,
+    });
+    if (error) {
+      console.error("[Nodsend] Contact email delivery failed:", error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true, emailId: data?.id };
+  } catch (error) {
+    console.error("[Nodsend] Contact email delivery failed:", error?.message || error);
+    return { success: false, error: error?.message || "Contact email delivery failed" };
+  }
+}
+
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)

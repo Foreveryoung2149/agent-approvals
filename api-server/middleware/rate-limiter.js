@@ -48,6 +48,13 @@ export const authRateLimiter = createFixedWindowLimiter({
   },
 });
 
+export const contactRateLimiter = createFixedWindowLimiter({
+  namespace: "contact",
+  requests: 5,
+  windowMs: 15 * 60_000,
+  identity: (req) => req.ip,
+});
+
 function createFixedWindowLimiter({ namespace, requests, windowMs, identity = (req) => req.ip }) {
   return async function fixedWindowLimiter(req, res, next) {
     return enforceLimit({

@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const setupComplete = activeKeys > 0 && activeWebhooks > 0 && recent.length > 0;
 
   return (
-    <div>
+    <div className="dashboard-overview">
       <PageHeader
         eyebrow="Live workspace"
         title="Command center"
@@ -120,20 +120,23 @@ export default function DashboardPage() {
 
         <Panel title="Launch readiness" description={setupComplete ? "Your control loop is connected." : "Finish these steps to go live."}>
           <ol className="dash-checklist">
-            <li data-complete={activeKeys > 0}>
-              <span><Icon name={activeKeys > 0 ? "check" : "key"} size={16} /></span>
-              <div><strong>Create an API key</strong><small>{activeKeys > 0 ? `${activeKeys} active key${activeKeys === 1 ? "" : "s"}` : "Authenticate your agent"}</small></div>
-              <Link href="/dashboard/api-keys" aria-label="Manage API keys"><Icon name="chevron" size={16} /></Link>
+            <li className="dash-checklist-item" data-complete={activeKeys > 0}>
+              <span className="dash-checklist-icon" aria-hidden="true"><Icon name={activeKeys > 0 ? "check" : "key"} size={17} /></span>
+              <strong className="dash-checklist-title">Create an API key</strong>
+              <small className="dash-checklist-description">{activeKeys > 0 ? `${activeKeys} active key${activeKeys === 1 ? "" : "s"}` : "Authenticate your agent"}</small>
+              <Link className="dash-checklist-action" href="/dashboard/api-keys" aria-label="Manage API keys"><Icon name="chevron" size={16} /></Link>
             </li>
-            <li data-complete={activeWebhooks > 0}>
-              <span><Icon name={activeWebhooks > 0 ? "check" : "webhook"} size={16} /></span>
-              <div><strong>Connect a webhook</strong><small>{activeWebhooks > 0 ? `${activeWebhooks} active endpoint${activeWebhooks === 1 ? "" : "s"}` : "Receive signed outcomes"}</small></div>
-              <Link href="/dashboard/webhooks" aria-label="Manage webhooks"><Icon name="chevron" size={16} /></Link>
+            <li className="dash-checklist-item" data-complete={activeWebhooks > 0}>
+              <span className="dash-checklist-icon" aria-hidden="true"><Icon name={activeWebhooks > 0 ? "check" : "webhook"} size={17} /></span>
+              <strong className="dash-checklist-title">Connect a webhook</strong>
+              <small className="dash-checklist-description">{activeWebhooks > 0 ? `${activeWebhooks} active endpoint${activeWebhooks === 1 ? "" : "s"}` : "Receive signed outcomes"}</small>
+              <Link className="dash-checklist-action" href="/dashboard/webhooks" aria-label="Manage webhooks"><Icon name="chevron" size={16} /></Link>
             </li>
-            <li data-complete={recent.length > 0}>
-              <span><Icon name={recent.length > 0 ? "check" : "approval"} size={16} /></span>
-              <div><strong>Send a test approval</strong><small>{recent.length > 0 ? "Decision traffic received" : "Verify the human loop"}</small></div>
-              <Link href="/docs" aria-label="Read approval quickstart"><Icon name="chevron" size={16} /></Link>
+            <li className="dash-checklist-item" data-complete={recent.length > 0}>
+              <span className="dash-checklist-icon" aria-hidden="true"><Icon name={recent.length > 0 ? "check" : "approval"} size={17} /></span>
+              <strong className="dash-checklist-title">Send a test approval</strong>
+              <small className="dash-checklist-description">{recent.length > 0 ? "Decision traffic received" : "Verify the human loop"}</small>
+              <Link className="dash-checklist-action" href="/docs" aria-label="Read approval quickstart"><Icon name="chevron" size={16} /></Link>
             </li>
           </ol>
         </Panel>

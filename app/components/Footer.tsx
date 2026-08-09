@@ -4,7 +4,7 @@ import { Brand } from "./Brand";
 const groups = [
   { title: "Product", links: [["How it works", "/#how-it-works"], ["Integrations", "/#integrations"], ["Pricing", "/pricing"]] },
   { title: "Developers", links: [["Documentation", "/docs"], ["API reference", "/docs#quick-start"], ["Webhooks", "/docs#webhooks"]] },
-  { title: "Company", links: [["Contact", "/contact"], ["FAQ", "/faq"], ["Blog", "/blog"], ["Security", "/docs#security"], ["Privacy", "/privacy"], ["Terms", "/terms"]] },
+  { title: "Company", links: [["Contact", "/contact"], ["FAQ", "/faq"], ["Blog", "/blog"], ["Security", "/docs#security"]] },
 ];
 
 export default function Footer() {

@@ -1,8 +1,50 @@
 import type { NextConfig } from "next";
 
+const CONTENT_SIGNAL = "ai-train=no, search=yes, ai-input=yes";
+const DISCOVERY_LINK = [
+  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+  '<https://api.nodsend.com/openapi.yaml>; rel="service-desc"; type="application/yaml"',
+  '</docs>; rel="service-doc"; type="text/html"',
+  '</auth.md>; rel="describedby"; type="text/markdown"',
+].join(", ");
+
+const negotiatedHeaders = [
+  { key: "Content-Signal", value: CONTENT_SIGNAL },
+  { key: "Vary", value: "Accept" },
+];
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
+      {
+        source: "/",
+        headers: [
+          ...negotiatedHeaders,
+          { key: "Link", value: DISCOVERY_LINK },
+        ],
+      },
+      ...[
+        "/docs",
+        "/pricing",
+        "/faq",
+        "/blog",
+        "/blog/:path*",
+        "/contact",
+        "/privacy",
+        "/terms",
+      ].map((source) => ({ source, headers: negotiatedHeaders })),
+      {
+        source: "/robots.txt",
+        headers: [
+          { key: "Content-Signal", value: CONTENT_SIGNAL },
+        ],
+      },
+      {
+        source: "/llms.txt",
+        headers: [
+          { key: "Content-Signal", value: CONTENT_SIGNAL },
+        ],
+      },
       {
         source: "/a/:path*",
         headers: [

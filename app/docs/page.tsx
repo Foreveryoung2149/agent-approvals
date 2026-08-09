@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CodeBlock } from "../components/CodeBlock";
 import Footer from "../components/Footer";
-import { Icon } from "../components/Icon";
+import { Icon, type IconName } from "../components/Icon";
 import Navbar from "../components/Navbar";
 
 export const metadata: Metadata = { title: "Developer documentation", description: "Build secure human approval checkpoints into LangChain, CrewAI, AutoGen, or any agent workflow." };
@@ -70,6 +70,12 @@ guarded_deploy = function_tool(
 assistant = AssistantAgent(tools=[guarded_deploy])`,
 };
 
+const integrationIcons: Record<keyof typeof integrationExamples, IconName> = {
+  langchain: "langchain",
+  crewai: "crewai",
+  autogen: "autogen",
+};
+
 const parameters = [
   ["action", "string", "yes", "Stable machine-readable action name."],
   ["summary", "string", "yes", "Plain-language decision summary."],
@@ -100,7 +106,7 @@ export default function DocsPage() {
 
           <span id="integrations" aria-hidden="true" />
           {(Object.keys(integrationExamples) as Array<keyof typeof integrationExamples>).map((framework, index) => (
-            <section className="doc-section" id={framework} key={framework}><span className="doc-index">0{index + 4} / Integration</span><h2>{framework === "langchain" ? "LangChain and LangGraph" : framework === "crewai" ? "CrewAI" : "AutoGen"}</h2><p>{framework === "langchain" ? "Bridge Nodsend to durable interrupts and resume the same thread only after the signed decision event arrives." : framework === "crewai" ? "Use Nodsend as an external feedback provider or guard selected consequential tool calls in a crew or flow." : "Keep the sensitive side effect inside an approval-aware function tool so the model cannot bypass the decision boundary."}</p><CodeBlock label="Python">{integrationExamples[framework]}</CodeBlock></section>
+            <section className="doc-section" id={framework} key={framework}><span className="doc-index">0{index + 4} / Integration</span><h2><Icon name={integrationIcons[framework]} size={25} style={{ marginRight: 10, verticalAlign: "-0.12em" }} />{framework === "langchain" ? "LangChain and LangGraph" : framework === "crewai" ? "CrewAI" : "AutoGen"}</h2><p>{framework === "langchain" ? "Bridge Nodsend to durable interrupts and resume the same thread only after the signed decision event arrives." : framework === "crewai" ? "Use Nodsend as an external feedback provider or guard selected consequential tool calls in a crew or flow." : "Keep the sensitive side effect inside an approval-aware function tool so the model cannot bypass the decision boundary."}</p><CodeBlock label="Python">{integrationExamples[framework]}</CodeBlock></section>
           ))}
 
           <section className="doc-section" id="security"><span className="doc-index">07 / Security</span><h2>Security model</h2><div className="docs-security-grid">{[["lock", "Approval-bound tokens", "Human decision tokens authorize one approval and are stored as hashes."], ["approval", "Atomic state changes", "Only one terminal decision can win, even under concurrent requests."], ["webhook", "Replay-aware events", "Stable event IDs, timestamps, and HMAC signatures protect resumption."], ["shield", "Tenant isolation", "Agent APIs scope every approval and webhook to the owning workspace."]].map(([icon, title, text]) => <div key={title}><Icon name={icon as "lock"} size={19} /><strong>{title}</strong><p>{text}</p></div>)}</div></section>

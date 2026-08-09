@@ -3,4 +3,7 @@ Allow: /
 Disallow: /dashboard/
 Disallow: /a/
 
+# Permit discovery and agent-assisted use while reserving model-training rights.
+Content-Signal: ai-train=no, search=yes, ai-input=yes
+
 Sitemap: https://nodsend.com/sitemap.xml
