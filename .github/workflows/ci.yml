@@ -84,6 +84,16 @@ jobs:
       - name: Run SDK and OpenAPI tests
         run: python -m pytest sdks/python/tests
 
+      - name: Test TypeScript SDK
+        run: |
+          npm ci --prefix sdks/typescript
+          npm test --prefix sdks/typescript
+
+      - name: Test experimental OpenClaw integration
+        run: |
+          npm ci --prefix integrations/openclaw
+          npm test --prefix integrations/openclaw
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 

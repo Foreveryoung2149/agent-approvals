@@ -3,25 +3,28 @@
 Typed sync and async clients for Nodsend human approval workflows. Framework
 packages are optional: installing the core SDK does not install an agent runtime.
 
-> Status: pre-release. This SDK targets the hardened API contract in
-> `openapi/nodsend.openapi.yaml`; it is not compatible with the repository's
-> original prototype API until the server-side contract migration is complete.
+> Status: early access. The public API may still evolve between minor releases,
+> but every release is contract-tested against Nodsend's OpenAPI specification.
 
-## Install from this repository
-
-```bash
-python -m pip install ./sdks/python
-```
-
-The distribution has not been published to PyPI yet. Once it is released, the
-package name will be `nodsend-ai`. Framework runtimes are not installed by the
-core package. To develop against an optional adapter from this repository:
+## Install
 
 ```bash
-python -m pip install './sdks/python[langchain]'
-python -m pip install './sdks/python[crewai]'
-python -m pip install './sdks/python[autogen]'
+python -m pip install --upgrade nodsend-ai
 ```
+
+The distribution name is `nodsend-ai`; Python imports use `nodsend`. Framework
+runtimes remain optional, so install only the adapter you use:
+
+```bash
+python -m pip install --upgrade 'nodsend-ai[langchain]'
+python -m pip install --upgrade 'nodsend-ai[crewai]'
+python -m pip install --upgrade 'nodsend-ai[autogen]'
+```
+
+The adapters currently target LangChain 1.x / LangGraph 1.x, CrewAI 1.x, and
+AutoGen AgentChat 0.7.x. Install CrewAI and AutoGen on Python 3.10-3.13; their
+current releases do not support Python 3.14. Pin your full application
+dependency set and validate framework upgrades in staging before deploying them.
 
 ## Core client
 
@@ -213,3 +216,6 @@ cd sdks/python
 python -m pip install -e '.[dev]'
 pytest
 ```
+
+See the [runnable integration examples](https://github.com/Foreveryoung2149/Nodsend/tree/main/sdks/python/examples)
+and the [maintainer release process](https://github.com/Foreveryoung2149/Nodsend/blob/main/sdks/python/RELEASING.md).

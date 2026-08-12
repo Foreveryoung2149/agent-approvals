@@ -39,30 +39,37 @@ Nodsend-Webhook-Signature: v1=8f7d...
 }`;
 
 const integrationExamples = {
-  langchain: `from nodsend.integrations.langchain import approval_kwargs_from_interrupt
+  langchain: `# python -m pip install "nodsend-ai[langchain]"
+from nodsend import Nodsend
+from nodsend.integrations.langchain import approval_kwargs_from_interrupt
 
-approval = nodsend.approvals.create(
-    **approval_kwargs_from_interrupt(
-        interrupt,
-        recipient="owner@company.com",
-        thread_id=thread_id,
-        webhook_id=webhook_id,
-    )
-)`,
-  crewai: `from nodsend.integrations.crewai import NodsendFeedbackProvider
+with Nodsend() as nodsend:
+    approval = nodsend.approvals.create(
+        **approval_kwargs_from_interrupt(
+            interrupt,
+            recipient="owner@company.com",
+            thread_id=thread_id,
+            webhook_id=webhook_id,
+        )
+    )`,
+  crewai: `# python -m pip install "nodsend-ai[crewai]"
+from nodsend import Nodsend
+from nodsend.integrations.crewai import NodsendFeedbackProvider
 
 provider = NodsendFeedbackProvider(
-    nodsend,
+    Nodsend(),
     recipient="finance@company.com",
     webhook_id=webhook_id,
 )
 
 # Pass provider to CrewAI's @human_feedback gate.`,
-  autogen: `from nodsend.integrations.autogen import function_tool
+  autogen: `# python -m pip install "nodsend-ai[autogen]"
+from nodsend import AsyncNodsend
+from nodsend.integrations.autogen import function_tool
 
 guarded_deploy = function_tool(
     deploy_production,
-    client=nodsend,
+    client=AsyncNodsend(),
     recipient="ops@company.com",
     summary="Deploy version 4.2 to production",
     description="Deploy only after human approval",
@@ -94,7 +101,7 @@ export default function DocsPage() {
     <main className="marketing-shell">
       <Navbar />
       <span id="main-content" className="skip-target" tabIndex={-1} />
-      <section className="page-hero page-hero-compact"><div className="container"><span className="signal-label">Developer documentation</span><h1>Build a reliable human checkpoint.</h1><p>Start with one API request, then connect the approval outcome to your framework’s native pause-and-resume lifecycle.</p></div></section>
+      <section className="page-hero page-hero-compact"><div className="container"><span className="signal-label">Developer documentation</span><h1>Build a reliable human checkpoint.</h1><p>Start with one API request, then connect the approval outcome to your framework&apos;s native pause-and-resume lifecycle.</p></div></section>
       <div className="container docs-shell">
         <aside className="docs-nav" aria-label="Documentation sections"><span>On this page</span>{nav.map(([label, id]) => <a key={id} href={`#${id}`}>{label}</a>)}<Link href="/signup" className="btn-primary">Get an API key</Link></aside>
         <article className="docs-content">
