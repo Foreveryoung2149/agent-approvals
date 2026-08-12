@@ -1,0 +1,57 @@
+{
+  "id": "nodsend-approval-gate",
+  "name": "Nodsend Approval Gate",
+  "description": "Fail-closed human approval for selected OpenClaw tool calls.",
+  "version": "0.1.0-experimental.1",
+  "activation": {
+    "onStartup": true,
+    "onCapabilities": ["hook"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["reviewerEmail", "protectedTools"],
+    "properties": {
+      "reviewerEmail": {
+        "type": "string",
+        "format": "email",
+        "description": "Human authorized to decide protected OpenClaw tool calls."
+      },
+      "protectedTools": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "description": "Exact canonical OpenClaw tool ids gated by Nodsend."
+      },
+      "expiresIn": {
+        "type": "string",
+        "pattern": "^(?:[1-9][0-9]*)(?:s|m|h|d)$",
+        "default": "1h"
+      },
+      "requestTimeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 14000,
+        "default": 10000
+      }
+    }
+  },
+  "uiHints": {
+    "reviewerEmail": {
+      "label": "Reviewer email",
+      "placeholder": "oncall@example.com"
+    },
+    "protectedTools": {
+      "label": "Protected tool ids"
+    },
+    "requestTimeoutMs": {
+      "label": "Nodsend request timeout (ms)",
+      "advanced": true
+    }
+  }
+}

@@ -39,7 +39,7 @@ export default function Navbar() {
       <div className="container site-nav-inner">
         <div className="site-nav-brand">
           <Brand />
-          <a href="https://github.com/Foreveryoung2149/agent-approvals" target="_blank" rel="noopener noreferrer" className="github-link">
+          <a href="https://github.com/Foreveryoung2149/Nodsend" target="_blank" rel="noopener noreferrer" className="github-link">
             <Icon name="github" size={16} />
           </a>
         </div>

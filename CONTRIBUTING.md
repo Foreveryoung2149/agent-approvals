@@ -14,8 +14,8 @@ Thanks for your interest in contributing to Nodsend! Every contribution helps ma
 
 ```bash
 # Clone the repo
-git clone https://github.com/Foreveryoung2149/agent-approvals.git
-cd agent-approvals
+git clone https://github.com/Foreveryoung2149/Nodsend.git
+cd Nodsend
 
 # Install dependencies
 npm ci

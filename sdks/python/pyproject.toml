@@ -4,12 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nodsend-ai"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Typed Python SDK and agent-framework adapters for Nodsend human approvals"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Nodsend" }]
 license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["ai", "agents", "human-in-the-loop", "approvals", "langchain", "crewai", "autogen"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -39,8 +40,12 @@ dev = [
 [project.urls]
 Homepage = "https://nodsend.com"
 Documentation = "https://nodsend.com/docs"
-Repository = "https://github.com/Foreveryoung2149/agent-approvals"
-Changelog = "https://github.com/Foreveryoung2149/agent-approvals/releases"
+Repository = "https://github.com/Foreveryoung2149/Nodsend"
+Changelog = "https://github.com/Foreveryoung2149/Nodsend/releases"
+Issues = "https://github.com/Foreveryoung2149/Nodsend/issues"
+
+[tool.hatch.version]
+path = "src/nodsend/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nodsend"]
